@@ -1,0 +1,48 @@
+name: Pipeline
+
+on:
+  push:
+    branches:
+      - main
+
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Environment
+        type: choice
+        required: true
+        options:
+          - development
+          - production
+      version:
+        description: Image version
+        type: string
+        required: true      
+
+jobs:
+  build:
+    name: Build
+    uses: ./.github/workflows/build.yml
+    with:
+      push: true
+    secrets: inherit
+  
+  deploy_to_dev:
+    name: Deploy to dev
+    uses: ./.github/workflows/deploy.yml
+    needs: build
+    with:
+      environment: development
+      version: ${{ needs.build.outputs.version }}
+    secrets: inherit
+
+  deploy_to_prod:
+    name: Deploy to prod
+    uses: ./.github/workflows/deploy.yml
+    needs:
+      - build
+      - deploy_to_dev # wait for the deploy_to_dev job to complete
+    with:
+      environment: production
+      version: ${{ needs.build.outputs.version }}
+    secrets: inherit

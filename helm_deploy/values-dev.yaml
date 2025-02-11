@@ -3,7 +3,6 @@
 
 generic-service:
   env:
-    REFRESH_INTERVAL_HOURS: "6"
     LOG_LEVEL: debug
 
   namespace_secrets:

@@ -10,16 +10,10 @@ from time import sleep
 
 SC_API_ENDPOINT = os.getenv('SERVICE_CATALOGUE_API_ENDPOINT')
 SC_API_TOKEN = os.getenv('SERVICE_CATALOGUE_API_KEY')
-GITHUB_APP_ID = int(os.getenv('GITHUB_APP_ID'))
-GITHUB_APP_INSTALLATION_ID = int(os.getenv('GITHUB_APP_INSTALLATION_ID'))
-GITHUB_APP_PRIVATE_KEY = os.getenv('GITHUB_APP_PRIVATE_KEY')
-REFRESH_INTERVAL_HOURS = int(os.getenv('REFRESH_INTERVAL_HOURS', '6'))
-CIRCLECI_TOKEN = os.getenv('CIRCLECI_TOKEN')
 SC_FILTER = os.getenv('SC_FILTER', '')
 SC_PAGE_SIZE = 10
 SC_PAGINATION_PAGE_SIZE = f'&pagination[pageSize]={SC_PAGE_SIZE}'
 SC_SORT = ''
-#SC_API_ENDPOINT = f'{SC_API_ENDPOINT}/v1/components?populate=environments,latest_commit{SC_FILTER}{SC_PAGINATION_PAGE_SIZE}{SC_SORT}'
 SC_API_ENDPOINT = f'{SC_API_ENDPOINT}/v1/components?populate=environments,latest_commit{SC_FILTER}{SC_PAGINATION_PAGE_SIZE}{SC_SORT}'
 # Set maximum number of concurrent threads to run, try to avoid secondary github api limits.
 MAX_THREADS = 10
@@ -55,39 +49,54 @@ def fetch_all_sc_components_data():
   log.info(f"Number of components records in SC: {len(all_sc_components_data)}")
   return all_sc_components_data
 
+# def extract_image_list(components_data):
+#     filtered_components = []
+#     for component in components_data:
+#         if 'environments' in component['attributes']:
+#             for environment in component['attributes']['environments']:
+#                 if environment['build_image_tag'] != None:
+#                     filtered_component = {
+#                         'component_name': component['attributes']['name'],
+#                         'container_image_repo': component['attributes']['container_image'],
+#                         'build_image_tag': environment['build_image_tag']
+#                     }
+#                     filtered_components.append(filtered_component)
+#                 elif environment['build_image_tag'] == None:
+#                     log.warning(f"{component['attributes']['environment']['type']} environment found without build_image_tag: {component['attributes']['name']}")
+    
+#     components_prod_image_data = json.dumps(filtered_components, indent=4)
+#     log.info(f"Number of components records in SC: {len(components_data)}")
+#     log.info(f"Number of components with prod image: {len(filtered_components)}")
+#     return filtered_components
+
 def extract_image_list(components_data):
     filtered_components = []
+    unique_components = set()
+
     for component in components_data:
         if 'environments' in component['attributes']:
             for environment in component['attributes']['environments']:
-                if environment['build_image_tag'] != None:
+                if environment['build_image_tag'] is not None:
                     filtered_component = {
                         'component_name': component['attributes']['name'],
                         'container_image_repo': component['attributes']['container_image'],
-                        'image_name': environment['build_image_tag']
+                        'build_image_tag': environment['build_image_tag']
                     }
-                    filtered_components.append(filtered_component)
-                elif environment['type'] == 'prod' and environment['build_image_tag'] == None:
+                    # Convert the dictionary to a tuple of items to make it hashable
+                    component_tuple = tuple(filtered_component.items())
+                    if component_tuple not in unique_components:
+                        unique_components.add(component_tuple)
+                        filtered_components.append(filtered_component)
+                else:
                     log.warning(f"{component['attributes']['environment']['type']} environment found without build_image_tag: {component['attributes']['name']}")
-    
+
     components_prod_image_data = json.dumps(filtered_components, indent=4)
     log.info(f"Number of components records in SC: {len(components_data)}")
     log.info(f"Number of components with prod image: {len(filtered_components)}")
     return filtered_components
 
 def run_trivy_scan(component):
-    image_name = f"{component['container_image_repo']}:{component['prod_image_name']}"
-    # trivy_command = [
-    #     'trivy', 'image', image_name,
-    #     '--severity', 'HIGH,CRITICAL',
-    #     '--ignore-unfixed',
-    #     '--skip-dirs', '/usr/local/lib/node_modules/npm',
-    #     '--skip-files', '/app/agent.jar',
-    #     '--format', 'sarif',
-    #     '--output', 'trivy-results.sarif',
-    #     '--exit-code', '1',
-    #     '--limit-severities-for-sarif'
-    # ]
+    image_name = f"{component['container_image_repo']}:{component['build_image_tag']}"
     log.info(f"Running Trivy scan on {image_name}")
     try:
         result = subprocess.run(['trivy', 'image', image_name ,'--severity', 'HIGH,CRITICAL', '--format', 'json', '--ignore-unfixed', '--skip-dirs', '/usr/local/lib/node_modules/npm','--skip-files', '/app/agent.jar',], capture_output=True, text=True, check=True)
@@ -116,7 +125,7 @@ def scan_prod_image(components):
             log.error(f"Invalid component format: {component}")
             continue
 
-        if 'prod_image_name' in component and component['prod_image_name']:
+        if 'build_image_tag' in component and component['build_image_tag']:
             t = threading.Thread(target=run_trivy_scan, args=(component,))
             threads.append(t)
 

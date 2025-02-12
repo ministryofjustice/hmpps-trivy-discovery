@@ -7,7 +7,6 @@ discoveryCronJob:
   enabled: true
   image:
     repository: ghcr.io/ministryofjustice/hmpps-trivy-discovery
-    tag: xxx    # override at deployment time
     port: 8080
   namespace_secrets:
     hmpps-trivy-discovery:

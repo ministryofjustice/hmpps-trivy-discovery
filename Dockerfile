@@ -15,10 +15,9 @@ WORKDIR /app
 RUN addgroup --gid 2000 --system appgroup && \
     adduser --uid 2000 --system appuser --gid 2000 --home /home/appuser
 
+RUN apt-get update && apt-get install -y wget jq
 # Install Trivy
-RUN apt-get update && \
-    apt-get install -y wget jq && \
-    TRIVY_VERSION=$(wget -qO- https://api.github.com/repos/aquasecurity/trivy/releases/latest | jq -r .tag_name) && \
+RUN TRIVY_VERSION=$(wget -qO- https://api.github.com/repos/aquasecurity/trivy/releases/latest | jq -r .tag_name) && \
     wget https://github.com/aquasecurity/trivy/releases/download/${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.deb && \
     dpkg -i trivy_${TRIVY_VERSION}_Linux-64bit.deb && \
     rm trivy_${TRIVY_VERSION}_Linux-64bit.deb

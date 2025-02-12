@@ -3,6 +3,8 @@
 generic-prometheus-alerts:
   targetApplication: hmpps-trivy-discovery
 
+version : xxx # override at deployment time
+
 discoveryCronJob:
   enabled: true
   image:

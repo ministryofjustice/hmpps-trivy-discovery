@@ -1,13 +1,5 @@
 ---
 # Per environment values which override defaults in hmpps-trivy-discovery/values.yaml
 
-generic-service:
-  env:
-    LOG_LEVEL: debug
-
-  namespace_secrets:
-    hmpps-trivy-discovery:
-      SC_FILTER: "SC_FILTER"
-
 generic-prometheus-alerts:
   alertSeverity: hmpps-sre-alerts-nonprod

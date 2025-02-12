@@ -19,7 +19,7 @@ RUN apt-get update && apt-get install -y wget jq
 # Install Trivy
 RUN TRIVY_VERSION=$(wget -qO- https://api.github.com/repos/aquasecurity/trivy/releases/latest | jq -r .tag_name) && \
     echo "Trivy version: ${TRIVY_VERSION}" && \
-    wget https://github.com/aquasecurity/trivy/releases/download/${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.deb || { echo "Failed to download Trivy"; exit 1; } && \
+    wget https://github.com/aquasecurity/trivy/releases/download/${TRIVY_VERSION}/trivy_${TRIVY_VERSION#v}_Linux-64bit.deb || { echo "Failed to download Trivy"; exit 1; } && \
     dpkg -i trivy_${TRIVY_VERSION}_Linux-64bit.deb && \
     rm trivy_${TRIVY_VERSION}_Linux-64bit.deb
 

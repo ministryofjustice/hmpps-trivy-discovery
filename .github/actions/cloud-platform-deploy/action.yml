@@ -57,7 +57,7 @@ runs:
           --force \
           --install \
           --reset-values \
-          --set 'generic-service.image.tag=${{ inputs.version }}' \
+          --set 'discoveryCronJob.image.tag=${{ inputs.version }}' \
           --set 'version=${{ inputs.version }}' \
           --timeout 10m \
           --values 'helm_deploy/${{ steps.env.outputs.values-file }}' \

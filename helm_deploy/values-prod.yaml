@@ -3,3 +3,7 @@
 
 generic-prometheus-alerts:
   alertSeverity: hmpps-sre-alerts-prod
+
+discoveryCronJob:
+  env:
+    LOG_LEVEL: info

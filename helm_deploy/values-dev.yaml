@@ -3,3 +3,10 @@
 
 generic-prometheus-alerts:
   alertSeverity: hmpps-sre-alerts-nonprod
+
+discoveryCronJob:
+  env:
+    LOG_LEVEL: debug
+  namespace_secrets:
+    hmpps-trivy-discovery:
+      SC_FILTER: "SC_FILTER

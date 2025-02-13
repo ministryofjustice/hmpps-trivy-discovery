@@ -9,4 +9,4 @@ discoveryCronJob:
     LOG_LEVEL: debug
   namespace_secrets:
     hmpps-trivy-discovery:
-      SC_FILTER: "SC_FILTER
+      SC_FILTER: "SC_FILTER"

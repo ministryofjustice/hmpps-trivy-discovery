@@ -19,7 +19,7 @@ SC_PAGINATION_PAGE_SIZE = f'&pagination[pageSize]={SC_PAGE_SIZE}'
 SC_SORT = ''
 SC_API_ENDPOINT = f'{SC_API_ENDPOINT}/v1/components?populate=environments,latest_commit{SC_FILTER}{SC_PAGINATION_PAGE_SIZE}{SC_SORT}'
 # Set maximum number of concurrent threads to run, try to avoid secondary github api limits.
-MAX_THREADS = 10
+MAX_THREADS = 5
 LOG_LEVEL = os.environ.get('LOG_LEVEL', 'INFO').upper()
 
 def install_trivy():

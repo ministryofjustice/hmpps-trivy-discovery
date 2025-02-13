@@ -31,10 +31,10 @@ def install_trivy():
         text=True
     ).strip()
     print(f"Trivy version: {trivy_version}")
-
+    trivy_version_stripped = trivy_version.lstrip('v')
     # Define the URL for the Trivy binary
-    trivy_url = f"https://github.com/aquasecurity/trivy/releases/download/{trivy_version}/trivy_{trivy_version}_Linux-64bit.tar.gz"
-    trivy_tar = f"trivy_{trivy_version}_Linux-64bit.tar.gz"
+    trivy_url = f"https://github.com/aquasecurity/trivy/releases/download/{trivy_version}/trivy_{trivy_version_stripped}_Linux-64bit.tar.gz"
+    trivy_tar = f"trivy_{trivy_version_stripped}_Linux-64bit.tar.gz"
 
     # Download the Trivy binary
     print(f"Downloading Trivy from {trivy_url}...")

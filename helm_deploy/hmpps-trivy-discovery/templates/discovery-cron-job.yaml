@@ -5,6 +5,8 @@ apiVersion: batch/v1
 kind: CronJob
 metadata:
   name: hmpps-trivy-discovery
+  labels:
+    {{- include "app.labels" . | nindent 4 }}
 spec:
   schedule: "20 */6 * * *"
   concurrencyPolicy: Forbid

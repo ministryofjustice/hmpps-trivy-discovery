@@ -7,6 +7,8 @@ import logging
 import threading
 import logging
 import subprocess
+import urllib.request
+import tarfile
 from time import sleep
 
 SC_API_ENDPOINT = os.getenv('SERVICE_CATALOGUE_API_ENDPOINT')
@@ -30,17 +32,18 @@ def install_trivy():
     ).strip()
     print(f"Trivy version: {trivy_version}")
 
-    # Download the Trivy .deb package
-    download_command = f"wget https://github.com/aquasecurity/trivy/releases/download/{trivy_version}/trivy_{trivy_version[1:]}_Linux-64bit.deb"
-    subprocess.run(download_command, shell=True, check=True)
+    # Define the URL for the Trivy binary
+    trivy_url = f"https://github.com/aquasecurity/trivy/releases/download/{trivy_version}/trivy_{trivy_version}_Linux-64bit.tar.gz"
+    trivy_tar = f"trivy_{trivy_version}_Linux-64bit.tar.gz"
 
-    # Install the Trivy .deb package
-    install_command = f"dpkg -i trivy_{trivy_version[1:]}_Linux-64bit.deb"
-    subprocess.run(install_command, shell=True, check=True)
+    # Download the Trivy binary
+    print(f"Downloading Trivy from {trivy_url}...")
+    urllib.request.urlretrieve(trivy_url, trivy_tar)
 
-    # Remove the .deb package
-    remove_command = f"rm trivy_{trivy_version[1:]}_Linux-64bit.deb"
-    subprocess.run(remove_command, shell=True, check=True)
+    # Extract the tar.gz file
+    print("Extracting Trivy...")
+    with tarfile.open(trivy_tar, "r:gz") as tar:
+      tar.extractall()
 
   except subprocess.CalledProcessError as e:
     print(f"Failed to install Trivy: {e}", file=sys.stderr)

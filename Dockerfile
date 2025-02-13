@@ -15,7 +15,7 @@ WORKDIR /app
 RUN addgroup --gid 2000 --system appgroup && \
     adduser --uid 2000 --system appuser --gid 2000 --home /home/appuser
 
-RUN apt-get update && apt-get install -y wget jq
+RUN apt-get update && apt-get install -y wget jq vim
 
 # copy the dependencies from builder stage
 RUN chown -R appuser:appgroup /app

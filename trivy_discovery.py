@@ -98,7 +98,7 @@ def extract_image_list(components_data):
             unique_components.add(component_tuple)
             filtered_components.append(filtered_component)
           else:
-            log.warning(f"{component['attributes']['environment']['type']} environment found without build_image_tag: {component['attributes']['name']}")
+            log.warning(f"{environment['type']} environment found without build_image_tag: {component['attributes']['name']}")
 
   log.info(f"Number of components records in SC: {len(components_data)}")
   log.info(f"Number of images to scan: {len(filtered_components)}")
@@ -179,5 +179,4 @@ if __name__ == '__main__':
   # Fetch all components data from Service Catalogue
   copmponents_data=fetch_all_sc_components_data()
   image_list = extract_image_list(copmponents_data)
-  print(image_list)
   scan_prod_image(image_list)

@@ -10,6 +10,9 @@ discoveryCronJob:
   image:
     repository: ghcr.io/ministryofjustice/hmpps-trivy-discovery
     port: 8080
+  env: 
+    TRIVY_DB_REPOSITORY: public.ecr.aws/aquasecurity/trivy-db:2,ghcr.io/aquasecurity/trivy-db:2
+    TRIVY_JAVA_DB_REPOSITORY: public.ecr.aws/aquasecurity/trivy-java-db:1,ghcr.io/aquasecurity/trivy-java-db:1
   namespace_secrets:
     hmpps-trivy-discovery:
       SERVICE_CATALOGUE_API_ENDPOINT: "SERVICE_CATALOGUE_API_ENDPOINT"

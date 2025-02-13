@@ -16,12 +16,6 @@ RUN addgroup --gid 2000 --system appgroup && \
     adduser --uid 2000 --system appuser --gid 2000 --home /home/appuser
 
 RUN apt-get update && apt-get install -y wget jq
-# Install Trivy
-RUN TRIVY_VERSION=$(wget -qO- https://api.github.com/repos/aquasecurity/trivy/releases/latest | jq -r .tag_name) && \
-    echo "Trivy version: ${TRIVY_VERSION}" && \
-    wget https://github.com/aquasecurity/trivy/releases/download/${TRIVY_VERSION}/trivy_${TRIVY_VERSION#v}_Linux-64bit.deb || { echo "Failed to download Trivy"; exit 1; } && \
-    dpkg -i trivy_${TRIVY_VERSION#v}_Linux-64bit.deb && \
-    rm trivy_${TRIVY_VERSION#v}_Linux-64bit.deb
 
 # copy the dependencies from builder stage
 COPY --chown=appuser:appgroup --from=builder /home/appuser/.local /home/appuser/.local

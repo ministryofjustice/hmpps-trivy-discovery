@@ -19,6 +19,32 @@ SC_API_ENDPOINT = f'{SC_API_ENDPOINT}/v1/components?populate=environments,latest
 MAX_THREADS = 10
 LOG_LEVEL = os.environ.get('LOG_LEVEL', 'INFO').upper()
 
+def install_trivy():
+    try:
+        # Get the latest Trivy version
+        trivy_version = subprocess.check_output(
+            "wget -qO- https://api.github.com/repos/aquasecurity/trivy/releases/latest | jq -r .tag_name",
+            shell=True,
+            text=True
+        ).strip()
+        print(f"Trivy version: {trivy_version}")
+
+        # Download the Trivy .deb package
+        download_command = f"wget https://github.com/aquasecurity/trivy/releases/download/{trivy_version}/trivy_{trivy_version[1:]}_Linux-64bit.deb"
+        subprocess.run(download_command, shell=True, check=True)
+
+        # Install the Trivy .deb package
+        install_command = f"dpkg -i trivy_{trivy_version[1:]}_Linux-64bit.deb"
+        subprocess.run(install_command, shell=True, check=True)
+
+        # Remove the .deb package
+        remove_command = f"rm trivy_{trivy_version[1:]}_Linux-64bit.deb"
+        subprocess.run(remove_command, shell=True, check=True)
+
+    except subprocess.CalledProcessError as e:
+        print(f"Failed to install Trivy: {e}", file=sys.stderr)
+        sys.exit(1)
+
 def fetch_all_sc_components_data():
   all_sc_components_data = []  
   try:
@@ -165,6 +191,8 @@ if __name__ == '__main__':
     log.critical('Unable to connect to the Service Catalogue.')
     raise SystemExit(e) from e
 
+  # Install Trivy
+  install_trivy()
   # Fetch all components data from Service Catalogue
   copmponents_data=fetch_all_sc_components_data()
   image_list = extract_image_list(copmponents_data)

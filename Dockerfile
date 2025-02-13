@@ -18,12 +18,13 @@ RUN addgroup --gid 2000 --system appgroup && \
 RUN apt-get update && apt-get install -y wget jq
 
 # copy the dependencies from builder stage
+RUN chown -R appuser:appgroup /app
 COPY --chown=appuser:appgroup --from=builder /home/appuser/.local /home/appuser/.local
-COPY ./trivy_discovery.py .
+COPY --chown=appuser:appgroup  ./trivy_discovery.py /app/trivy_discovery.py
 
 # update PATH environment variable
 ENV PATH=/home/appuser/.local:$PATH
 
 USER 2000
 
-CMD [ "python", "-u", "trivy_discovery.py" ]
+CMD [ "python", "-u", "/app/trivy_discovery.py" ]

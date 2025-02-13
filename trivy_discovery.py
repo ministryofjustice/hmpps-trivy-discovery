@@ -30,24 +30,24 @@ def install_trivy():
         shell=True,
         text=True
     ).strip()
-    print(f"Trivy version: {trivy_version}")
+    log.info(f"Trivy version: {trivy_version}")
     trivy_version_stripped = trivy_version.lstrip('v')
     # Define the URL for the Trivy binary
     trivy_url = f"https://github.com/aquasecurity/trivy/releases/download/{trivy_version}/trivy_{trivy_version_stripped}_Linux-64bit.tar.gz"
     trivy_tar = f"trivy_{trivy_version_stripped}_Linux-64bit.tar.gz"
 
     # Download the Trivy binary
-    print(f"Downloading Trivy from {trivy_url}...")
+    log.info(f"Downloading Trivy from {trivy_url}...")
     urllib.request.urlretrieve(trivy_url, trivy_tar)
 
     # Extract the tar.gz file
-    print("Extracting Trivy...")
+    log.info("Extracting Trivy...")
     with tarfile.open(trivy_tar, "r:gz") as tar:
       tar.extractall()
 
   except subprocess.CalledProcessError as e:
-    print(f"Failed to install Trivy: {e}", file=sys.stderr)
-    sys.exit(1)
+    log.error(f"Failed to install Trivy: {e}", file=sys.stderr)
+    raise SystemExit(e) from e
 
 def fetch_all_sc_components_data():
   all_sc_components_data = []  
@@ -176,7 +176,12 @@ if __name__ == '__main__':
 
   # Install Trivy
   install_trivy()
-  # Fetch all components data from Service Catalogue
+
+  # Fetch components data from Service Catalogue
   copmponents_data=fetch_all_sc_components_data()
+
+  # Extract image list data from components data
   image_list = extract_image_list(copmponents_data)
+
+  # Run Trivy scan on the container images
   scan_prod_image(image_list)

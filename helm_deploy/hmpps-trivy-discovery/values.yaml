@@ -12,8 +12,13 @@ discoveryCronJob:
   env:
     TRIVY_DB_REPOSITORY: "public.ecr.aws/aquasecurity/trivy-db:2,ghcr.io/aquasecurity/trivy-db:2"
     TRIVY_JAVA_DB_REPOSITORY: "public.ecr.aws/aquasecurity/trivy-java-db:1,ghcr.io/aquasecurity/trivy-java-db:1"
+    REDIS_TLS_ENABLED: "true"
+    REDIS_PORT: 6379
   namespace_secrets:
     hmpps-trivy-discovery:
       SERVICE_CATALOGUE_API_ENDPOINT: "SERVICE_CATALOGUE_API_ENDPOINT"
       SERVICE_CATALOGUE_API_KEY: "SERVICE_CATALOGUE_API_KEY"
       SLACK_BOT_TOKEN: "SLACK_BOT_TOKEN"
+    elasticache-redis:
+      REDIS_ENDPOINT: "primary_endpoint_address"
+      REDIS_TOKEN: "auth_token"

@@ -15,7 +15,7 @@ env:
 {{- if .discoveryCronJob.env -}}
 {{- range $key, $val := .discoveryCronJob.env }}
   - name: {{ $key }}
-    value: {{ $val }}
+    value: {{ quote $val }}
 {{- end }}
 {{- end }}
 {{- end -}}

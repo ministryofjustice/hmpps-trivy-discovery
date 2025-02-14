@@ -27,7 +27,7 @@ LOG_LEVEL = os.environ.get('LOG_LEVEL', 'INFO').upper()
 redis_host = os.getenv("REDIS_ENDPOINT")
 redis_port = int(os.getenv("REDIS_PORT"))
 redis_tls_enabled = os.getenv("REDIS_TLS_ENABLED", 'False').lower() in ('true', '1', 't')
-redis_token = os.getenv("REDIS_TOKEN", "")
+redis_key = os.getenv("REDIS_TOKEN", "")
 redis_max_stream_length = int(os.getenv("REDIS_MAX_STREAM_LENGTH", "360"))
 
 def install_trivy():
@@ -122,7 +122,7 @@ def run_trivy_scan(component):
     cached_result = redis.json().get(cache_key)
     log.info(f"Trivy scan result for {image_name} (from cache):\n{json.dumps(cached_result, indent=2)}")
     return
-
+  redis_url = f"redis://{redis_host}:{redis_port}"
   try:
     result = subprocess.run(
     [
@@ -133,6 +133,8 @@ def run_trivy_scan(component):
         '--skip-dirs', '/usr/local/lib/node_modules/npm',
         '--skip-files', '/app/agent.jar'
         '--cache-backend', redis_url,
+        '--redis-key', redis_key,
+        '--redis-tls',
         '--refresh'
     ],
     capture_output=True, text=True, check=True)
@@ -206,28 +208,6 @@ if __name__ == '__main__':
   except Exception as e:
     log.critical('Unable to connect to the Service Catalogue.')
     raise SystemExit(e) from e
-
-  # Test connection to redis
-  try:
-    redis_connect_args = dict(
-      host = redis_host,
-      port = redis_port,
-      ssl = redis_tls_enabled,
-      ssl_cert_reqs = None,
-      decode_responses = True
-    )
-    if redis_token:
-      redis_connect_args.update(dict(password=redis_token))
-      redis_url = f"redis://:{redis_token}@{redis_host}:{redis_port}"
-    redis = redis.Redis(**redis_connect_args)
-    redis.ping()
-    log.info("Successfully connected to redis.")
-    # Create root object for Trivy scan cache data if it doesn't exist
-    if not redis.exists('trivy:scan:cache'):
-        redis.json().set('trivy:scan:cache', '$', {})
-  except Exception as e:
-    log.critical("Unable to connect to redis.")
-    raise SystemExit(e)
   
   # Install Trivy
   install_trivy()

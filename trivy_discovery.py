@@ -108,7 +108,17 @@ def run_trivy_scan(component):
   image_name = f"{component['container_image_repo']}:{component['build_image_tag']}"
   log.info(f"Running Trivy scan on {image_name}")
   try:
-    result = subprocess.run(['trivy', 'image', image_name ,'--severity', 'HIGH,CRITICAL', '--format', 'json', '--ignore-unfixed', '--skip-dirs', '/usr/local/lib/node_modules/npm','--skip-files', '/app/agent.jar',], capture_output=True, text=True, check=True)
+    result = subprocess.run(
+    [
+        'trivy', 'image', image_name,
+        '--severity', 'HIGH,CRITICAL',
+        '--format', 'json',
+        '--ignore-unfixed',
+        '--skip-dirs', '/usr/local/lib/node_modules/npm',
+        '--skip-files', '/app/agent.jar',
+        '--cache-dir', '/app/trivy'
+    ],
+    capture_output=True, text=True, check=True)
     scan_output = json.loads(result.stdout)
     results_section = scan_output.get("Results", [])
     # Check if there are any vulnerabilities
@@ -123,7 +133,7 @@ def run_trivy_scan(component):
     # Update service catalogue with the scan result (Add in environment variable or scan )
     # look into cache for base image - faster
   except subprocess.CalledProcessError as e:
-    log.error(f"Trivy scan failed for {image_name}")
+    log.error(f"Trivy scan failed for {image_name}: {e.stderr}")
 
 def scan_prod_image(components):
   log.info(f'Starting scan for {len(components)} components...')

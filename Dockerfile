@@ -21,13 +21,11 @@ RUN apt-get update && apt-get install -y wget jq
 RUN chown -R appuser:appgroup /app
 COPY --chown=appuser:appgroup --from=builder /home/appuser/.local /home/appuser/.local
 COPY --chown=appuser:appgroup  ./trivy_discovery.py /app/trivy_discovery.py
+# create the /app/trivy directory for the trivy cache
+RUN mkdir -p /app/trivy && chown -R appuser:appgroup /app/trivy
 
 # update PATH environment variable
 ENV PATH=/home/appuser/.local:/app:$PATH
-# Add environment variables for Trivy DB repositories
-ENV TRIVY_DB_REPOSITORY="public.ecr.aws/aquasecurity/trivy-db:2,ghcr.io/aquasecurity/trivy-db:2"
-ENV TRIVY_JAVA_DB_REPOSITORY="public.ecr.aws/aquasecurity/trivy-java-db:1,ghcr.io/aquasecurity/trivy-java-db:1"
-
 USER 2000
 
 CMD [ "python", "-u", "/app/trivy_discovery.py" ]

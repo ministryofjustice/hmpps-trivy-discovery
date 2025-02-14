@@ -6,6 +6,7 @@ generic-prometheus-alerts:
 
 discoveryCronJob:
   env:
+  env:
     LOG_LEVEL: debug
   namespace_secrets:
     hmpps-trivy-discovery:

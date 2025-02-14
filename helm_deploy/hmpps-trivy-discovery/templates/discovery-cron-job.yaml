@@ -21,7 +21,7 @@ spec:
         spec:
           containers:
             - name: hmpps-trivy-discovery
-              image: "{{ .Values.discoveryCronJob.image.repository }}:{{ .Values.version }}"
+              image: "{{ .Values.discoveryCronJob.image.repository }}:{{ .Values.discoveryCronJob.image.tag }}"
               command: ["python", "-u", "/app/trivy_discovery.py"]
               env:
                 - name: PATH

@@ -1,6 +1,7 @@
 {{- define "discoveryCronJob.envs" -}}
-{{- if .discoveryCronJob.namespace_secrets -}}
+{{- if or .discoveryCronJob.namespace_secrets .discoveryCronJob.env -}}
 env:
+{{- if .discoveryCronJob.namespace_secrets -}}
 {{- range $secret, $envs := .discoveryCronJob.namespace_secrets }}
   {{- range $key, $val := $envs }}
   - name: {{ $key }}
@@ -9,6 +10,13 @@ env:
         key: {{ trimSuffix "?" $val }}
         name: {{ $secret }}{{ if hasSuffix "?" $val }}
         optional: true{{ end }}  {{- end }}
+{{- end }}
+{{- end }}
+{{- if .discoveryCronJob.env -}}
+{{- range $key, $val := .discoveryCronJob.env }}
+  - name: {{ $key }}
+    value: {{ $val }}
+{{- end }}
 {{- end }}
 {{- end -}}
 {{- end -}}

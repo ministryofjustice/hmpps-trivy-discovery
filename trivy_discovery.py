@@ -9,7 +9,6 @@ import logging
 import subprocess
 import urllib.request
 import tarfile
-import redis
 from time import sleep
 
 SC_API_ENDPOINT = os.getenv('SERVICE_CATALOGUE_API_ENDPOINT')
@@ -115,13 +114,6 @@ def extract_image_list(components_data):
 def run_trivy_scan(component):
   image_name = f"{component['container_image_repo']}:{component['build_image_tag']}"
   log.info(f"Running Trivy scan on {image_name}")
-  # Check if the scan result is already in the cache
-  cache_key = f"trivy:scan:cache:{component['build_image_tag']}"
-  if redis.exists(cache_key):
-    log.info(f"Cache hit for {component['build_image_tag']}")
-    cached_result = redis.json().get(cache_key)
-    log.info(f"Trivy scan result for {image_name} (from cache):\n{json.dumps(cached_result, indent=2)}")
-    return
   redis_url = f"redis://{redis_host}:{redis_port}"
   try:
     result = subprocess.run(
@@ -151,18 +143,12 @@ def run_trivy_scan(component):
     log.info(f"Trivy scan result for {image_name}:\n{result}")
     # Update service catalogue with the scan result (Add in environment variable or scan )
     # look into cache for base image - faster
-    # Store the scan result in the Redis cache
-    redis.json().set(cache_key, '$', results_section)
   except subprocess.CalledProcessError as e:
     log.error(f"Trivy scan failed for {image_name}: {e.stderr}")
 
 def scan_prod_image(components):
   log.info(f'Starting scan for {len(components)} components...')
   threads = []
-
-  # Create root object for Trivy scan cache data if it doesn't exist
-  if not redis.exists('trivy:scan:cache'):
-    redis.json().set('trivy:scan:cache', '$', {})
 
   for component in components:
     if not isinstance(component, dict):

@@ -116,7 +116,7 @@ def run_trivy_scan(component):
         '--ignore-unfixed',
         '--skip-dirs', '/usr/local/lib/node_modules/npm',
         '--skip-files', '/app/agent.jar',
-        '--cache-dir', '/app/trivy'
+        '--cache-dir', '/app/trivy_cache'
     ],
     capture_output=True, text=True, check=True)
     scan_output = json.loads(result.stdout)

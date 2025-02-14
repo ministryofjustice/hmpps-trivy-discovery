@@ -22,7 +22,7 @@ RUN chown -R appuser:appgroup /app
 COPY --chown=appuser:appgroup --from=builder /home/appuser/.local /home/appuser/.local
 COPY --chown=appuser:appgroup  ./trivy_discovery.py /app/trivy_discovery.py
 # create the /app/trivy directory for the trivy cache
-RUN mkdir -p /app/trivy && chown -R appuser:appgroup /app/trivy
+RUN mkdir -p /app/trivy_cache && chown -R appuser:appgroup /app/trivy_cache
 
 # update PATH environment variable
 ENV PATH=/home/appuser/.local:/app:$PATH

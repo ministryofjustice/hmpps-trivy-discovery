@@ -115,6 +115,8 @@ def run_trivy_scan(component):
   image_name = f"{component['container_image_repo']}:{component['build_image_tag']}"
   log.info(f"Running Trivy scan on {image_name}")
   redis_url = f"redis://{redis_host}:{redis_port}"
+  print (f"redis_url: {redis_url}")
+  print (f"redis_key: {redis_key}")
   try:
     result = subprocess.run(
     [
@@ -123,11 +125,10 @@ def run_trivy_scan(component):
         '--format', 'json',
         '--ignore-unfixed',
         '--skip-dirs', '/usr/local/lib/node_modules/npm',
-        '--skip-files', '/app/agent.jar'
+        '--skip-files', '/app/agent.jar',
         '--cache-backend', redis_url,
         '--redis-key', redis_key,
-        '--redis-tls',
-        '--refresh'
+        '--redis-tls'
     ],
     capture_output=True, text=True, check=True)
     scan_output = json.loads(result.stdout)

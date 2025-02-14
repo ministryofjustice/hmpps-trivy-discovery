@@ -25,7 +25,7 @@ LOG_LEVEL = os.environ.get('LOG_LEVEL', 'INFO').upper()
 
 # redis environments
 redis_host = os.getenv("REDIS_ENDPOINT")
-redis_port = os.getenv("REDIS_PORT")
+redis_port = int(os.getenv("REDIS_PORT"))
 redis_tls_enabled = os.getenv("REDIS_TLS_ENABLED", 'False').lower() in ('true', '1', 't')
 redis_token = os.getenv("REDIS_TOKEN", "")
 redis_max_stream_length = int(os.getenv("REDIS_MAX_STREAM_LENGTH", "360"))

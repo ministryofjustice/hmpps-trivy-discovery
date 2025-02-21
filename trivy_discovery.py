@@ -10,6 +10,7 @@ import subprocess
 import urllib.request
 import tarfile
 from time import sleep
+from datetime import datetime
 
 SC_API_ENDPOINT = os.getenv('SERVICE_CATALOGUE_API_ENDPOINT')
 SC_API_TOKEN = os.getenv('SERVICE_CATALOGUE_API_KEY')
@@ -17,17 +18,19 @@ SC_FILTER = os.getenv('SC_FILTER', '')
 SC_PAGE_SIZE = 10
 SC_PAGINATION_PAGE_SIZE = f'&pagination[pageSize]={SC_PAGE_SIZE}'
 SC_SORT = ''
-SC_API_ENDPOINT = f'{SC_API_ENDPOINT}/v1/components?populate=environments,latest_commit{SC_FILTER}{SC_PAGINATION_PAGE_SIZE}{SC_SORT}'
+SC_API_ENVIRONMENTS_ENDPOINT = f'{SC_API_ENDPOINT}/v1/environments?populate=component'
+SC_API_ENVIRONMENTS_ENDPOINT_WITHOUT_COMPONENT = f'{SC_API_ENDPOINT}/v1/environments?populate=component'
+SC_API_TRIVY_SCANS_ENDPOINT = f'{SC_API_ENDPOINT}/v1/trivy-scans'
 # Set maximum number of concurrent threads to run, try to avoid secondary github api limits.
 MAX_THREADS = 5
 LOG_LEVEL = os.environ.get('LOG_LEVEL', 'INFO').upper()
 
 # redis environments
-redis_host = os.getenv("REDIS_ENDPOINT")
-redis_port = int(os.getenv("REDIS_PORT"))
-redis_tls_enabled = os.getenv("REDIS_TLS_ENABLED", 'False').lower() in ('true', '1', 't')
-redis_key = os.getenv("REDIS_TOKEN", "")
-redis_max_stream_length = int(os.getenv("REDIS_MAX_STREAM_LENGTH", "360"))
+# redis_host = os.getenv("REDIS_ENDPOINT")
+# redis_port = int(os.getenv("REDIS_PORT"))
+# redis_tls_enabled = os.getenv("REDIS_TLS_ENABLED", 'False').lower() in ('true', '1', 't')
+# redis_key = os.getenv("REDIS_TOKEN", "")
+# redis_max_stream_length = int(os.getenv("REDIS_MAX_STREAM_LENGTH", "360"))
 
 def install_trivy():
   try:
@@ -56,18 +59,18 @@ def install_trivy():
     log.error(f"Failed to install Trivy: {e}", file=sys.stderr)
     raise SystemExit(e) from e
 
-def fetch_all_sc_components_data():
-  all_sc_components_data = []  
+def fetch_all_sc_environments_data():
+  all_sc_environments_data = []  
   try:
-    r = requests.get(SC_API_ENDPOINT, headers=sc_api_headers, timeout=10)
+    r = requests.get(SC_API_ENVIRONMENTS_ENDPOINT, headers=sc_api_headers, timeout=10)
   except Exception as e:
-    log.error(f"Error getting team in the SC: {e}")
+    log.error(f"Error getting environments from SC: {e}")
     return None
 
   if r.status_code == 200:
     j_meta = r.json()["meta"]["pagination"]
     log.debug(f"Got result page: {j_meta['page']} from SC")
-    all_sc_components_data.extend(r.json()["data"])
+    all_sc_environments_data.extend(r.json()["data"])
   else:
     raise Exception(f"Received non-200 response from Service Catalogue: {r.status_code}")
     return None
@@ -76,47 +79,113 @@ def fetch_all_sc_components_data():
   num_pages = j_meta['pageCount']
   for p in range(2, num_pages + 1):
     page = f"&pagination[page]={p}"
-    r = requests.get(f"{SC_API_ENDPOINT}{page}", headers=sc_api_headers, timeout=10)
+    r = requests.get(f"{SC_API_ENVIRONMENTS_ENDPOINT}{page}", headers=sc_api_headers, timeout=10)
     if r.status_code == 200:
       log.debug(f"Got result page: {p} from SC")
-      all_sc_components_data.extend(r.json()["data"])
+      all_sc_environments_data.extend(r.json()["data"])
     else:
       raise Exception(f"Received non-200 response from Service Catalogue: {r.status_code}")
       return None
-  log.info(f"Number of components records in SC: {len(all_sc_components_data)}")
-  return all_sc_components_data
+  return all_sc_environments_data
 
-def extract_image_list(components_data):
+def delete_sc_trivy_scan_results():
+    try:
+        # Fetch the list of records
+        response = requests.get(SC_API_TRIVY_SCANS_ENDPOINT, headers=sc_api_headers, timeout=10)
+        if response.status_code == 200:
+            data = response.json().get('data', [])
+            for record in data:
+                record_id = record['id']
+                delete_response = requests.delete(f"{SC_API_TRIVY_SCANS_ENDPOINT}/{record_id}", headers=sc_api_headers, timeout=10)
+                if delete_response.status_code == 200:
+                    log.info(f"Deleted Trivy scan result with ID: {record_id}")
+                else:
+                    log.error(f"Failed to delete Trivy scan result with ID: {record_id} - Status code: {delete_response.status_code}")
+        else:
+            log.error(f"Failed to fetch Trivy scan results: {response.status_code}")
+    except Exception as e:
+        log.error(f"Error deleting previous Trivy scan results: {e}")
+
+def upload_sc_trivy_scan_results(component, image_tag, result):
+  trivy_scan_data = {
+    'name': component,
+    'trivy_scan_results': result,
+    'build_image_tag': image_tag,
+    'trivy_scan_timestamp': datetime.now().isoformat()
+  }
+  try:
+    r = requests.post(
+        f'{SC_API_TRIVY_SCANS_ENDPOINT}',
+          headers=sc_api_headers,
+          json={'data': trivy_scan_data},
+          timeout=10,
+        )
+    if r.status_code == 200:
+      log.info(f"Inserted Trivy scan result for {image_tag}")
+    else:
+      log.error(f"Failed to insert Trivy scan result for {image_tag}: {r.status_code}")
+  except Exception as e:
+    log.error(f"Error updating Trivy scan result for {component}{image_tag}: {e}")
+  trivy_scan_id=r.json()['data']['id']
+  # Update environment record with the latest scan relationship
+  try:
+    SC_API_ENVIRONMENTS_QUERY_ENDPOINT=f'{SC_API_ENDPOINT}/v1/environments?populate=component&filters[component][name][$contains]={component}'
+    r = requests.get(SC_API_ENVIRONMENTS_QUERY_ENDPOINT, headers=sc_api_headers, timeout=10)
+  except Exception as e:
+    log.error(f"Error getting environments from SC for component {component}: {e}")
+    return None
+
+  if r.status_code == 200:
+    for environment in r.json()["data"]:
+      if environment['attributes']['build_image_tag'] == image_tag:
+        environment_id = environment['id']
+        try:
+          r = requests.put(
+            f'{SC_API_ENDPOINT}/v1/environments/{environment_id}',
+            headers=sc_api_headers,
+            json={'data': {'trivy_scan': trivy_scan_id}},
+            timeout=10,
+          )
+          if r.status_code == 200:
+            log.info(f"Updated environment record with Trivy scan result for {component} {image_tag}")
+          else:
+            log.error(f"Failed to update environment record with Trivy scan result for {component} {image_tag}: {r.status_code}")
+        except Exception as e:
+            log.error(f"Error updating environment record with Trivy scan result for {component} {image_tag}: {e}")
+
+def extract_image_list(environments_data):
   filtered_components = []
   unique_components = set()
 
-  for component in components_data:
-    if 'environments' in component['attributes']:
-      for environment in component['attributes']['environments']:
-        if environment['build_image_tag'] is not None:
-          filtered_component = {
-            'component_name': component['attributes']['name'],
-            'container_image_repo': component['attributes']['container_image'],
-            'build_image_tag': environment['build_image_tag']
-          }
-          # Convert the dictionary to a tuple of items to make it hashable
-          component_tuple = tuple(filtered_component.items())
-          if component_tuple not in unique_components:
-            unique_components.add(component_tuple)
-            filtered_components.append(filtered_component)
-          else:
-            log.warning(f"{environment['type']} environment found without build_image_tag: {component['attributes']['name']}")
+  for environment in environments_data:
+    if 'component' in environment['attributes']:
+      if environment['attributes']['build_image_tag'] is not None:
+        component_name=environment['attributes']['component']['data']['attributes']['name']
+        container_image_repo=environment['attributes']['component']['data']['attributes']['container_image']
+        build_image_tag=environment['attributes']['build_image_tag']
+        filtered_component = {
+          'component_name': component_name,
+          'container_image_repo': container_image_repo,
+          'build_image_tag': build_image_tag
+        }
+        # Convert the dictionary to a tuple of items to make it hashable
+        component_tuple = tuple(filtered_component.items())
+        if component_tuple not in unique_components:
+          unique_components.add(component_tuple)
+          filtered_components.append(filtered_component)
+        else:
+          log.warning(f"{environment['attributes']['type']} environment found without build_image_tag: {component_name}")
 
-  log.info(f"Number of components records in SC: {len(components_data)}")
+  log.info(f"Number of environments records in SC: {len(environments_data)}")
   log.info(f"Number of images to scan: {len(filtered_components)}")
   return filtered_components
 
 def run_trivy_scan(component):
-  image_name = f"{component['container_image_repo']}:{component['build_image_tag']}"
+  component_name = component['component_name']
+  component_build_image_tag = component['build_image_tag']
+  image_name = f"{component['container_image_repo']}:{component_build_image_tag}"
   log.info(f"Running Trivy scan on {image_name}")
-  redis_url = f"redis://{redis_host}:{redis_port}"
-  print (f"redis_url: {redis_url}")
-  print (f"redis_key: {redis_key}")
+
   try:
     result = subprocess.run(
     [
@@ -126,9 +195,9 @@ def run_trivy_scan(component):
         '--ignore-unfixed',
         '--skip-dirs', '/usr/local/lib/node_modules/npm',
         '--skip-files', '/app/agent.jar',
-        '--cache-backend', redis_url,
-        '--redis-key', redis_key,
-        '--redis-tls'
+        # '--cache-backend', redis_url,
+        # '--redis-key', redis_key,
+        # '--redis-tls'
     ],
     capture_output=True, text=True, check=True)
     scan_output = json.loads(result.stdout)
@@ -142,8 +211,7 @@ def run_trivy_scan(component):
     else:
         result=json.dumps({"message": "No vulnerabilities in container image"}, indent=2)
     log.info(f"Trivy scan result for {image_name}:\n{result}")
-    # Update service catalogue with the scan result (Add in environment variable or scan )
-    # look into cache for base image - faster
+    upload_sc_trivy_scan_results(component_name, component_build_image_tag, result)
   except subprocess.CalledProcessError as e:
     log.error(f"Trivy scan failed for {image_name}: {e.stderr}")
 
@@ -189,7 +257,7 @@ if __name__ == '__main__':
   # Test connection to Service Catalogue
   try:
     r = requests.head(
-      f'{SC_API_ENDPOINT}/_health', headers=sc_api_headers, timeout=10
+      f'{SC_API_ENVIRONMENTS_ENDPOINT}/_health', headers=sc_api_headers, timeout=10
     )
     log.info(f'Successfully connected to the Service Catalogue. {r.status_code}')
   except Exception as e:
@@ -200,10 +268,13 @@ if __name__ == '__main__':
   install_trivy()
 
   # Fetch components data from Service Catalogue
-  copmponents_data=fetch_all_sc_components_data()
+  environments_data=fetch_all_sc_environments_data()
 
-  # Extract image list data from components data
-  image_list = extract_image_list(copmponents_data)
+  # Extract image list data from environments data
+  image_list = extract_image_list(environments_data)
+
+  # Delete all previous trivy scan results
+  delete_sc_trivy_scan_results()
 
   # Run Trivy scan on the container images
   scan_prod_image(image_list)

@@ -18,7 +18,7 @@ SC_FILTER = os.getenv('SC_FILTER', '')
 SC_PAGE_SIZE = 10
 SC_PAGINATION_PAGE_SIZE = f'&pagination[pageSize]={SC_PAGE_SIZE}'
 SC_SORT = ''
-SC_API_ENVIRONMENTS_ENDPOINT = f'{SC_API_ENDPOINT}/v1/environments?populate=component'
+SC_API_ENVIRONMENTS_ENDPOINT = f'{SC_API_ENDPOINT}/v1/environments?populate=component&{SC_FILTER}'
 SC_API_ENVIRONMENTS_ENDPOINT_WITHOUT_COMPONENT = f'{SC_API_ENDPOINT}/v1/environments?populate=component'
 SC_API_TRIVY_SCANS_ENDPOINT = f'{SC_API_ENDPOINT}/v1/trivy-scans'
 # Set maximum number of concurrent threads to run, try to avoid secondary github api limits.
@@ -89,22 +89,22 @@ def fetch_all_sc_environments_data():
   return all_sc_environments_data
 
 def delete_sc_trivy_scan_results():
-    try:
-        # Fetch the list of records
-        response = requests.get(SC_API_TRIVY_SCANS_ENDPOINT, headers=sc_api_headers, timeout=10)
-        if response.status_code == 200:
-            data = response.json().get('data', [])
-            for record in data:
-                record_id = record['id']
-                delete_response = requests.delete(f"{SC_API_TRIVY_SCANS_ENDPOINT}/{record_id}", headers=sc_api_headers, timeout=10)
-                if delete_response.status_code == 200:
-                    log.info(f"Deleted Trivy scan result with ID: {record_id}")
-                else:
-                    log.error(f"Failed to delete Trivy scan result with ID: {record_id} - Status code: {delete_response.status_code}")
+  try:
+    # Fetch the list of records
+    response = requests.get(SC_API_TRIVY_SCANS_ENDPOINT, headers=sc_api_headers, timeout=10)
+    if response.status_code == 200:
+      data = response.json().get('data', [])
+      for record in data:
+        record_id = record['id']
+        delete_response = requests.delete(f"{SC_API_TRIVY_SCANS_ENDPOINT}/{record_id}", headers=sc_api_headers, timeout=10)
+        if delete_response.status_code == 200:
+          log.info(f"Deleted Trivy scan result with ID: {record_id}")
         else:
-            log.error(f"Failed to fetch Trivy scan results: {response.status_code}")
-    except Exception as e:
-        log.error(f"Error deleting previous Trivy scan results: {e}")
+          log.error(f"Failed to delete Trivy scan result with ID: {record_id} - Status code: {delete_response.status_code}")
+    else:
+      log.error(f"Failed to fetch Trivy scan results: {response.status_code}")
+  except Exception as e:
+    log.error(f"Error deleting previous Trivy scan results: {e}")
 
 def upload_sc_trivy_scan_results(component, image_tag, result):
   trivy_scan_data = {
@@ -195,9 +195,7 @@ def run_trivy_scan(component):
         '--ignore-unfixed',
         '--skip-dirs', '/usr/local/lib/node_modules/npm',
         '--skip-files', '/app/agent.jar',
-        # '--cache-backend', redis_url,
-        # '--redis-key', redis_key,
-        # '--redis-tls'
+        '--cache-dir', '/tmp'
     ],
     capture_output=True, text=True, check=True)
     scan_output = json.loads(result.stdout)
@@ -207,11 +205,12 @@ def run_trivy_scan(component):
 
     # Display the appropriate message
     if has_vulnerabilities:
-      result=json.dumps(results_section, indent=2)
+      result_json=results_section
     else:
-        result=json.dumps({"message": "No vulnerabilities in container image"}, indent=2)
-    log.info(f"Trivy scan result for {image_name}:\n{result}")
-    upload_sc_trivy_scan_results(component_name, component_build_image_tag, result)
+      result_json={"message": "No vulnerabilities in container image"}
+
+    log.info(f"Trivy scan result for {image_name}:\n{result_json}")
+    upload_sc_trivy_scan_results(component_name, component_build_image_tag, result_json)
   except subprocess.CalledProcessError as e:
     log.error(f"Trivy scan failed for {image_name}: {e.stderr}")
 

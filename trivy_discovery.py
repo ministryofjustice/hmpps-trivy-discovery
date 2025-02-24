@@ -25,13 +25,6 @@ SC_API_TRIVY_SCANS_ENDPOINT = f'{SC_API_ENDPOINT}/v1/trivy-scans'
 MAX_THREADS = 5
 LOG_LEVEL = os.environ.get('LOG_LEVEL', 'INFO').upper()
 
-# redis environments
-# redis_host = os.getenv("REDIS_ENDPOINT")
-# redis_port = int(os.getenv("REDIS_PORT"))
-# redis_tls_enabled = os.getenv("REDIS_TLS_ENABLED", 'False').lower() in ('true', '1', 't')
-# redis_key = os.getenv("REDIS_TOKEN", "")
-# redis_max_stream_length = int(os.getenv("REDIS_MAX_STREAM_LENGTH", "360"))
-
 def install_trivy():
   try:
     # Get the latest Trivy version
@@ -195,7 +188,7 @@ def run_trivy_scan(component):
         '--ignore-unfixed',
         '--skip-dirs', '/usr/local/lib/node_modules/npm',
         '--skip-files', '/app/agent.jar',
-        '--cache-dir', '/tmp'
+        '--cache-dir', cache_dir
     ],
     capture_output=True, text=True, check=True)
     scan_output = json.loads(result.stdout)
@@ -276,4 +269,6 @@ if __name__ == '__main__':
   delete_sc_trivy_scan_results()
 
   # Run Trivy scan on the container images
+  # Check if /app/trivy_cache directory exists
+  cache_dir = '/app/trivy_cache' if os.path.exists('/app/trivy_cache') else '/tmp'
   scan_prod_image(image_list)

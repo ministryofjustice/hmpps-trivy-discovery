@@ -1,0 +1,10 @@
+---
+# Per environment values which override defaults in hmpps-trivy-discovery/values.yaml
+
+generic-prometheus-alerts:
+  alertSeverity: hmpps-sre-alerts-prod
+
+discoveryCronJob:
+  env:
+    REDIS_MAX_STREAM_LENGTH: 1440
+    LOG_LEVEL: info

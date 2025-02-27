@@ -1,0 +1,39 @@
+{{- if .Values.discoveryCronJob.enabled -}}
+
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: hmpps-trivy-discovery
+  labels:
+    {{- include "app.labels" . | nindent 4 }}
+spec:
+  schedule: "00 01 * * 1-5"
+  concurrencyPolicy: Forbid
+  failedJobsHistoryLimit: 5
+  startingDeadlineSeconds: 600
+  successfulJobsHistoryLimit: 5
+  jobTemplate:
+    spec:
+      backoffLimit: 0 # Do not retry
+      ttlSecondsAfterFinished: 345600
+      template:
+        spec:
+          containers:
+            - name: hmpps-trivy-discovery
+              image: "{{ .Values.discoveryCronJob.image.repository }}:{{ .Values.discoveryCronJob.image.tag }}"
+              command: ["python", "-u", "/app/trivy_discovery.py"]
+              env:
+                - name: PATH
+                  value: "/home/appuser/.local:/usr/local/bin:$PATH"
+              securityContext:
+                capabilities:
+                  drop:
+                  - ALL
+                runAsNonRoot: true
+                allowPrivilegeEscalation: false
+                seccompProfile:
+                  type: RuntimeDefault
+      {{- include "discoveryCronJob.envs" .Values | nindent 14 }}
+          restartPolicy: Never
+{{- end }}

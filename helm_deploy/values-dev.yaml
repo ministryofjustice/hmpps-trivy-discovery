@@ -6,7 +6,6 @@ generic-prometheus-alerts:
 
 discoveryCronJob:
   env:
-    REFRESH_INTERVAL: "180"
     REDIS_MAX_STREAM_LENGTH: 360
     LOG_LEVEL: debug
   namespace_secrets:

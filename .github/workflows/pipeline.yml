@@ -55,7 +55,7 @@ jobs:
     uses: ministryofjustice/hmpps-github-actions/.github/workflows/deploy_env.yml@v2 # WORKFLOW_VERSION
     secrets: inherit
     with:
-      environment: 'development'
+      environment: 'dev'
       app_version: '${{ needs.build.outputs.app_version }}'
   deploy_prod:
     name: Deploy to production environment
@@ -65,5 +65,5 @@ jobs:
     uses: ministryofjustice/hmpps-github-actions/.github/workflows/deploy_env.yml@v2 # WORKFLOW_VERSION
     secrets: inherit
     with:
-      environment: 'production'
+      environment: 'prod'
       app_version: '${{ needs.build.outputs.app_version }}'

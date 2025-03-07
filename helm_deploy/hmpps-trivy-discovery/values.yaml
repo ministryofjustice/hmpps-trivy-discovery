@@ -4,7 +4,6 @@ generic-prometheus-alerts:
   targetApplication: hmpps-trivy-discovery
 
 discoveryCronJob:
-  enabled: true
   image:
     repository: ghcr.io/ministryofjustice/hmpps-trivy-discovery
     port: 8080

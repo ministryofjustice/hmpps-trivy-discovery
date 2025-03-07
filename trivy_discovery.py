@@ -19,7 +19,6 @@ SC_PAGE_SIZE = 10
 SC_PAGINATION_PAGE_SIZE = f'&pagination[pageSize]={SC_PAGE_SIZE}'
 SC_SORT = ''
 SC_API_ENVIRONMENTS_ENDPOINT = f'{SC_API_ENDPOINT}/v1/environments?populate=component&{SC_FILTER}'
-SC_API_ENVIRONMENTS_ENDPOINT_WITHOUT_COMPONENT = f'{SC_API_ENDPOINT}/v1/environments?populate=component'
 SC_API_TRIVY_SCANS_ENDPOINT = f'{SC_API_ENDPOINT}/v1/trivy-scans'
 # Set maximum number of concurrent threads to run, try to avoid secondary github api limits.
 MAX_THREADS = 5
@@ -51,11 +50,11 @@ def install_trivy():
   except subprocess.CalledProcessError as e:
     log.error(f"Failed to install Trivy: {e}", file=sys.stderr)
     raise SystemExit(e) from e
-
-def fetch_all_sc_environments_data():
-  all_sc_environments_data = []  
+  
+def fetch_sc_data(API_ENDPOINT):
+  sc_result_data = []  
   try:
-    r = requests.get(SC_API_ENVIRONMENTS_ENDPOINT, headers=sc_api_headers, timeout=10)
+    r = requests.get(API_ENDPOINT, headers=sc_api_headers, timeout=10)
   except Exception as e:
     log.error(f"Error getting environments from SC: {e}")
     return None
@@ -63,7 +62,7 @@ def fetch_all_sc_environments_data():
   if r.status_code == 200:
     j_meta = r.json()["meta"]["pagination"]
     log.debug(f"Got result page: {j_meta['page']} from SC")
-    all_sc_environments_data.extend(r.json()["data"])
+    sc_result_data.extend(r.json()["data"])
   else:
     raise Exception(f"Received non-200 response from Service Catalogue: {r.status_code}")
     return None
@@ -72,30 +71,26 @@ def fetch_all_sc_environments_data():
   num_pages = j_meta['pageCount']
   for p in range(2, num_pages + 1):
     page = f"&pagination[page]={p}"
-    r = requests.get(f"{SC_API_ENVIRONMENTS_ENDPOINT}{page}", headers=sc_api_headers, timeout=10)
+    r = requests.get(f"{API_ENDPOINT}{page}", headers=sc_api_headers, timeout=10)
     if r.status_code == 200:
       log.debug(f"Got result page: {p} from SC")
-      all_sc_environments_data.extend(r.json()["data"])
+      sc_result_data.extend(r.json()["data"])
     else:
       raise Exception(f"Received non-200 response from Service Catalogue: {r.status_code}")
       return None
-  return all_sc_environments_data
+  return sc_result_data
 
 def delete_sc_trivy_scan_results():
   try:
     # Fetch the list of records
-    response = requests.get(SC_API_TRIVY_SCANS_ENDPOINT, headers=sc_api_headers, timeout=10)
-    if response.status_code == 200:
-      data = response.json().get('data', [])
-      for record in data:
-        record_id = record['id']
-        delete_response = requests.delete(f"{SC_API_TRIVY_SCANS_ENDPOINT}/{record_id}", headers=sc_api_headers, timeout=10)
-        if delete_response.status_code == 200:
-          log.info(f"Deleted Trivy scan result with ID: {record_id}")
-        else:
-          log.error(f"Failed to delete Trivy scan result with ID: {record_id} - Status code: {delete_response.status_code}")
-    else:
-      log.error(f"Failed to fetch Trivy scan results: {response.status_code}")
+    trivy_data = fetch_sc_data(SC_API_TRIVY_SCANS_ENDPOINT)
+    for record in trivy_data:
+      record_id = record['id']
+      delete_response = requests.delete(f"{SC_API_TRIVY_SCANS_ENDPOINT}/{record_id}", headers=sc_api_headers, timeout=10)
+      if delete_response.status_code == 200:
+        log.info(f"Deleted Trivy scan result with ID: {record_id}")
+      else:
+        log.error(f"Failed to delete Trivy scan result with ID: {record_id} - Status code: {delete_response.status_code}")
   except Exception as e:
     log.error(f"Error deleting previous Trivy scan results: {e}")
 
@@ -235,11 +230,32 @@ def scan_prod_image(components):
 
   log.info('Completed all Trivy scans.')
 
+def get_new_container_image_list(image_list):
+  new_image_list = []
+  trivy_data=fetch_sc_data(SC_API_TRIVY_SCANS_ENDPOINT)
+  for image in image_list:
+    build_image_tag = image['build_image_tag']
+    if not any(trivy['attributes']['build_image_tag'] == build_image_tag for trivy in trivy_data):
+      new_image_list.append(image)  
+  return new_image_list
+
 ################# Main functions #################
 
 if __name__ == '__main__':
   logging.basicConfig(format='[%(asctime)s] %(levelname)s %(threadName)s %(message)s', level=LOG_LEVEL)
   log = logging.getLogger(__name__)
+  if '-f' in os.sys.argv or '--full' in os.sys.argv:
+    log.info("Running Trivy scan on all container images in Service Catalogue")
+    log.info("********************************************************************")
+    incremental_scan=False
+  elif '-i' in os.sys.argv or '--incremental' in os.sys.argv:
+    log.info("Running Trivy scan on new images only")
+    log.info("********************************************************************")
+    incremental_scan=True
+  else:
+    log.error("Invalid argument. Use -i or --incremental for incremental scan or -f or --full for full scan")
+    sys.exit(1)
+
   sc_api_headers = {
     'Authorization': f'Bearer {SC_API_TOKEN}',
     'Content-Type': 'application/json',
@@ -260,15 +276,14 @@ if __name__ == '__main__':
   install_trivy()
 
   # Fetch components data from Service Catalogue
-  environments_data=fetch_all_sc_environments_data()
+  environments_data=fetch_sc_data(SC_API_ENVIRONMENTS_ENDPOINT)
 
   # Extract image list data from environments data
   image_list = extract_image_list(environments_data)
+  if incremental_scan:
+    image_list = get_new_container_image_list(image_list)
+  else:
+    delete_sc_trivy_scan_results()
 
-  # Delete all previous trivy scan results
-  delete_sc_trivy_scan_results()
-
-  # Run Trivy scan on the container images
-  # Check if /app/trivy_cache directory exists
   cache_dir = '/app/trivy_cache' if os.path.exists('/app/trivy_cache') else '/tmp'
   scan_prod_image(image_list)

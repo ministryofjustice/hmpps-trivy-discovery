@@ -5,6 +5,9 @@ generic-prometheus-alerts:
   alertSeverity: hmpps-sre-alerts-prod
 
 discoveryCronJob:
+  enabled: true
+  full_scan_schedule: "00 01 * * 1-5"
+  incremental_scan_schedule: "*/30 8-17 * * 1-5"
   env:
     REDIS_MAX_STREAM_LENGTH: 1440
     LOG_LEVEL: info

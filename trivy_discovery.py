@@ -19,7 +19,7 @@ SC_PAGE_SIZE = 10
 SC_PAGINATION_PAGE_SIZE = f'&pagination[pageSize]={SC_PAGE_SIZE}'
 SC_SORT = ''
 SC_API_ENVIRONMENTS_ENDPOINT = f'{SC_API_ENDPOINT}/v1/environments?populate=component&{SC_FILTER}'
-SC_API_TRIVY_SCANS_ENDPOINT = f'{SC_API_ENDPOINT}/v1/trivy-scans'
+SC_API_TRIVY_SCANS_ENDPOINT = f'{SC_API_ENDPOINT}/v1/trivy-scans?populate=*'
 # Set maximum number of concurrent threads to run, try to avoid secondary github api limits.
 MAX_THREADS = 5
 LOG_LEVEL = os.environ.get('LOG_LEVEL', 'INFO').upper()
@@ -52,32 +52,32 @@ def install_trivy():
     raise SystemExit(e) from e
   
 def fetch_sc_data(API_ENDPOINT):
+  log.info(f"Fetching data from Service Catalogue endpoint: {API_ENDPOINT}")
   sc_result_data = []  
   try:
     r = requests.get(API_ENDPOINT, headers=sc_api_headers, timeout=10)
+    if r.status_code == 200:
+      j_meta = r.json()["meta"]["pagination"]
+      log.debug(f"Got result page: {j_meta['page']} from SC")
+      sc_result_data.extend(r.json()["data"])
   except Exception as e:
-    log.error(f"Error getting environments from SC: {e}")
-    return None
-
-  if r.status_code == 200:
-    j_meta = r.json()["meta"]["pagination"]
-    log.debug(f"Got result page: {j_meta['page']} from SC")
-    sc_result_data.extend(r.json()["data"])
-  else:
-    raise Exception(f"Received non-200 response from Service Catalogue: {r.status_code}")
-    return None
+    raise Exception(f"Received non-200 response from Service Catalogue {API_ENDPOINT}: {r.status_code}")
 
   # Loop over the remaining pages and collect all data
   num_pages = j_meta['pageCount']
   for p in range(2, num_pages + 1):
     page = f"&pagination[page]={p}"
-    r = requests.get(f"{API_ENDPOINT}{page}", headers=sc_api_headers, timeout=10)
-    if r.status_code == 200:
-      log.debug(f"Got result page: {p} from SC")
-      sc_result_data.extend(r.json()["data"])
-    else:
-      raise Exception(f"Received non-200 response from Service Catalogue: {r.status_code}")
-      return None
+    try: 
+      r = requests.get(f"{API_ENDPOINT}{page}", headers=sc_api_headers, timeout=10)
+      if r.status_code == 200:
+        log.debug(f"Got result page: {p} from SC")
+        sc_result_data.extend(r.json()["data"])
+    except Exception as e:
+      raise Exception(f"Received non-200 response from Service Catalogue {API_ENDPOINT}{page}: {r.status_code}")
+
+  log.info(f"Total records in {API_ENDPOINT} {r.json()["meta"]["pagination"]["total"]}")
+  log.info(f"Total records fetched from {API_ENDPOINT}: {len(sc_result_data)}")
+
   return sc_result_data
 
 def delete_sc_trivy_scan_results():
@@ -165,7 +165,7 @@ def extract_image_list(environments_data):
           log.warning(f"{environment['attributes']['type']} environment found without build_image_tag: {component_name}")
 
   log.info(f"Number of environments records in SC: {len(environments_data)}")
-  log.info(f"Number of images to scan: {len(filtered_components)}")
+  log.info(f"Number of images: {len(filtered_components)}")
   return filtered_components
 
 def run_trivy_scan(component):
@@ -237,6 +237,7 @@ def get_new_container_image_list(image_list):
     build_image_tag = image['build_image_tag']
     if not any(trivy['attributes']['build_image_tag'] == build_image_tag for trivy in trivy_data):
       new_image_list.append(image)  
+  log.info(f"Number of new images to scan: {len(new_image_list)}")
   return new_image_list
 
 ################# Main functions #################

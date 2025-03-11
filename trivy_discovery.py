@@ -74,8 +74,8 @@ def fetch_sc_data(API_ENDPOINT):
         sc_result_data.extend(r.json()["data"])
     except Exception as e:
       raise Exception(f"Received non-200 response from Service Catalogue {API_ENDPOINT}{page}: {r.status_code}")
-
-  log.info(f"Total records in {API_ENDPOINT} {r.json()["meta"]["pagination"]["total"]}")
+  total_records = j_meta['total']
+  log.info(f"Total records in {API_ENDPOINT} : {total_records}")
   log.info(f"Total records fetched from {API_ENDPOINT}: {len(sc_result_data)}")
 
   return sc_result_data

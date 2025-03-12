@@ -20,6 +20,7 @@ SC_PAGINATION_PAGE_SIZE = f'&pagination[pageSize]={SC_PAGE_SIZE}'
 SC_SORT = ''
 SC_API_ENVIRONMENTS_ENDPOINT = f'{SC_API_ENDPOINT}/v1/environments?populate=component&{SC_FILTER}'
 SC_API_TRIVY_SCANS_ENDPOINT = f'{SC_API_ENDPOINT}/v1/trivy-scans?populate=*'
+
 # Set maximum number of concurrent threads to run, try to avoid secondary github api limits.
 MAX_THREADS = 5
 LOG_LEVEL = os.environ.get('LOG_LEVEL', 'INFO').upper()
@@ -86,7 +87,7 @@ def delete_sc_trivy_scan_results():
     trivy_data = fetch_sc_data(SC_API_TRIVY_SCANS_ENDPOINT)
     for record in trivy_data:
       record_id = record['id']
-      delete_response = requests.delete(f"{SC_API_TRIVY_SCANS_ENDPOINT}/{record_id}", headers=sc_api_headers, timeout=10)
+      delete_response = requests.delete(f"{SC_API_ENDPOINT}/v1/trivy-scans/{record_id}", headers=sc_api_headers, timeout=10)
       if delete_response.status_code == 200:
         log.info(f"Deleted Trivy scan result with ID: {record_id}")
       else:

@@ -21,7 +21,7 @@ spec:
         spec:
           containers:
             - name: hmpps-trivy-discovery
-              image: "{{ .Values.discoveryCronJob.image.repository }}:{{ .Values.discoveryCronJob.image.tag }}"
+              image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
               command: ["python", "-u", "/app/trivy_discovery.py", "-f"]
               env:
                 - name: PATH
@@ -58,7 +58,7 @@ spec:
         spec:
           containers:
             - name: hmpps-trivy-discovery
-              image: "{{ .Values.discoveryCronJob.image.repository }}:{{ .Values.discoveryCronJob.image.tag }}"
+              image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
               command: ["python", "-u", "/app/trivy_discovery.py", "-i"]
               env:
                 - name: PATH

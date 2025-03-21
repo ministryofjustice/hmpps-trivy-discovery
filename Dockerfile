@@ -21,6 +21,8 @@ RUN apt-get update && apt-get install -y wget jq
 RUN chown -R appuser:appgroup /app
 COPY --chown=appuser:appgroup --from=builder /home/appuser/.local /home/appuser/.local
 COPY --chown=appuser:appgroup  ./trivy_discovery.py /app/trivy_discovery.py
+COPY --chown=appuser:appgroup  ./classes ./classes
+
 # create the /app/trivy directory for the trivy cache
 RUN mkdir -p /app/trivy_cache && chown -R appuser:appgroup /app/trivy_cache
 

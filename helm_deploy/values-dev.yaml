@@ -6,8 +6,8 @@ generic-prometheus-alerts:
 
 discoveryCronJob:
   enabled: true
-  full_scan_schedule: "00 01 * * 1"
-  incremental_scan_schedule: "00 08 * * 1-5"
+  full_scan_schedule: "00 10 * * 1"
+  incremental_scan_schedule: "00 8 * * 1-5"
   env:
     REDIS_MAX_STREAM_LENGTH: 360
     LOG_LEVEL: debug

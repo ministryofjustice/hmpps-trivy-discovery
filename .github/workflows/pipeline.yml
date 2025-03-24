@@ -57,6 +57,7 @@ jobs:
     with:
       environment: 'dev'
       app_version: '${{ needs.build.outputs.app_version }}'
+      helm_additional_args: "--set 'discoveryCronJob.env.SLACK_ALERT_CHANNEL=${{ vars.DEV_SLACK_ALERT_CHANNEL }}'"
   deploy_prod:
     name: Deploy to production environment
     needs:
@@ -67,3 +68,4 @@ jobs:
     with:
       environment: 'prod'
       app_version: '${{ needs.build.outputs.app_version }}'
+      helm_additional_args: "--set 'discoveryCronJob.env.SLACK_ALERT_CHANNEL=${{ vars.PROD_SLACK_ALERT_CHANNEL }}'"

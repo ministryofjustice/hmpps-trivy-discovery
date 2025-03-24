@@ -17,10 +17,8 @@ from classes.slack import Slack
 SC_API_ENDPOINT = os.getenv('SERVICE_CATALOGUE_API_ENDPOINT')
 SC_API_TOKEN = os.getenv('SERVICE_CATALOGUE_API_KEY')
 SC_FILTER = os.getenv('SC_FILTER', '')
-SC_PAGE_SIZE = 10
-SC_PAGINATION_PAGE_SIZE = f'&pagination[pageSize]={SC_PAGE_SIZE}'
 SC_SORT = ''
-SC_API_ENVIRONMENTS_ENDPOINT = f'environments?populate=component&{SC_FILTER}'
+SC_API_ENVIRONMENTS_ENDPOINT = 'environments?populate=component'
 SC_API_TRIVY_SCANS_ENDPOINT = 'trivy-scans?populate=*'
 SLACK_ALERT_CHANNEL = os.getenv('SLACK_ALERT_CHANNEL', '')
 SLACK_BOT_TOKEN = os.getenv('SLACK_BOT_TOKEN', '')
@@ -97,36 +95,39 @@ def extract_image_list(environments_data):
   unique_components = set()
 
   for environment in environments_data:
-    if 'component' in environment['attributes']:
-      if environment['attributes']['build_image_tag'] is not None:
-        component_name = environment['attributes']['component']['data']['attributes'][
-          'name'
-        ]
-        container_image_repo = environment['attributes']['component']['data'][
-          'attributes'
-        ]['container_image']
-        build_image_tag = environment['attributes']['build_image_tag']
+    if component := environment.get('attributes', {}).get('component', {}):
+      component_data = component.get('data', {})
+      component_attributes = (
+        component_data.get('attributes', {}) if component_data else {}
+      )
+      if build_image_tag := environment.get('attributes', {}).get('build_image_tag'):
+        log.debug(
+          f'environment build image tag for {component_attributes.get("name")}: {environment.get("attributes").get("build_image_tag")}'
+        )
+        component_name = component_attributes.get('name')
+        container_image_repo = component_attributes.get('container_image')
         filtered_component = {
           'component_name': component_name,
           'container_image_repo': container_image_repo,
           'build_image_tag': build_image_tag,
         }
+        log.debug(f'filtered_component: {filtered_component}')
         # Convert the dictionary to a tuple of items to make it hashable
         component_tuple = tuple(filtered_component.items())
         if component_tuple not in unique_components:
           unique_components.add(component_tuple)
           filtered_components.append(filtered_component)
-        else:
-          log.warning(
-            f'{environment["attributes"]["type"]} environment found without build_image_tag: {component_name}'
-          )
+      else:
+        log.warning(
+          f'No build image tag for {environment.get("attributes").get("name")} in {component_name}'
+        )
 
   log.info(f'Number of environments records in SC: {len(environments_data)}')
   log.info(f'Number of images: {len(filtered_components)}')
   return filtered_components
 
 
-def run_trivy_scan(component, sc):
+def run_trivy_scan(component, cache_dir, sc):
   component_name = component['component_name']
   component_build_image_tag = component['build_image_tag']
   image_name = f'{component["container_image_repo"]}:{component_build_image_tag}'
@@ -135,7 +136,7 @@ def run_trivy_scan(component, sc):
   try:
     result = subprocess.run(
       [
-        'trivy',
+        '/tmp/trivy',
         'image',
         image_name,
         '--severity',
@@ -175,7 +176,7 @@ def run_trivy_scan(component, sc):
     log.error(f'Trivy scan failed for {image_name}: {e.stderr}')
 
 
-def scan_prod_image(components, sc):
+def scan_prod_image(components, cache_dir, sc):
   log.info(f'Starting scan for {len(components)} components...')
   threads = []
 
@@ -185,7 +186,7 @@ def scan_prod_image(components, sc):
       continue
 
     if 'build_image_tag' in component and component['build_image_tag']:
-      t = threading.Thread(target=run_trivy_scan, args=(component, sc))
+      t = threading.Thread(target=run_trivy_scan, args=(component, cache_dir, sc))
       threads.append(t)
 
       # Start the thread
@@ -272,4 +273,4 @@ if __name__ == '__main__':
     delete_sc_trivy_scan_results(sc)
 
   cache_dir = '/app/trivy_cache' if os.path.exists('/app/trivy_cache') else '/tmp'
-  scan_prod_image(image_list, sc)
+  scan_prod_image(image_list, cache_dir, sc)

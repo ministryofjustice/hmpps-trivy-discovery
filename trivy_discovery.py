@@ -136,7 +136,7 @@ def run_trivy_scan(component, cache_dir, sc):
   try:
     result = subprocess.run(
       [
-        '/tmp/trivy',
+        'trivy',
         'image',
         image_name,
         '--severity',

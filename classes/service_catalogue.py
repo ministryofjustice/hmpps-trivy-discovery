@@ -132,12 +132,35 @@ class ServiceCatalogue:
         json_data = r.json()['data'][0]
       else:
         raise Exception(
-          f'Received non-200 response from Service Catalogue when reading all records from {table}: {r.status_code}'
+          f'Received non-200 response from Service Catalogue when reading record {label}={parameter} from {table}: {r.status_code}'
         )
 
     except Exception as e:
       self.log.error(
-        f'Problem with Service Catalogue API while reading all records from {table}. {e}'
+        f'Problem with Service Catalogue API while reading record {label}={parameter} from {table}. {e}'
+      )
+    return json_data
+
+  def get_record_list(self, table, label, parameter):
+    json_data = {}
+    try:
+      if '?' in table:  # add an extra parameter if there are already parameters
+        filter = f'&filters[{label}][$eq]={parameter}'
+      else:
+        filter = f'?filters[{label}][$eq]={parameter}'
+      r = requests.get(
+        f'{self.url}/v1/{table}{filter}', headers=self.api_headers, timeout=10
+      )
+      if r.status_code == 200:
+        json_data = r.json()['data']
+      else:
+        raise Exception(
+          f'Received non-200 response from Service Catalogue when reading record {label}={parameter} from {table}: {r.status_code}'
+        )
+
+    except Exception as e:
+      self.log.error(
+        f'Problem with Service Catalogue API while reading record {label}={parameter} from {table}. {e}'
       )
     return json_data
 

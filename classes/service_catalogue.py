@@ -70,8 +70,16 @@ class ServiceCatalogue:
     self.log.info(
       f'Getting all records from table {table} in Service Catalogue using URL: {self.url}/v1/{table}'
     )
+    if '?' in table:  # add an extra parameter if there are already parameters
+      filter = f'&filter=${self.filter}'
+    else:  # otherwise use ? to denote the first parameter
+      filter = f'?filter=${self.filter}'
     try:
-      r = requests.get(f'{self.url}/v1/{table}', headers=self.api_headers, timeout=10)
+      r = requests.get(
+        f'{self.url}/v1/{table}{filter}',
+        headers=self.api_headers,
+        timeout=10,
+      )
       if r.status_code == 200:
         j_meta = r.json()['meta']['pagination']
         self.log.debug(f'Got result page: {j_meta["page"]} from Service Catalogue')

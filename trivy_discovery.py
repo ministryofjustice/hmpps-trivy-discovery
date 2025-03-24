@@ -75,8 +75,9 @@ def upload_sc_trivy_scan_results(component, image_tag, result, sc):
   if response := sc.add(SC_API_TRIVY_SCANS_ENDPOINT, trivy_scan_data):
     trivy_scan_id = response.get('data', {}).get('id', {})
     if trivy_scan_id:
+      # rather unpleasant workaround with the label field since it's underneath component
       if environments := sc.get_record(
-        SC_API_ENVIRONMENTS_ENDPOINT, 'component', 'name', component
+        SC_API_ENVIRONMENTS_ENDPOINT, 'component][name', component
       ):
         for environment in environments:
           environment_id = environment['id']

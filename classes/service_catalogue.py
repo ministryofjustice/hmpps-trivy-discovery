@@ -203,7 +203,7 @@ class ServiceCatalogue:
     try:
       self.log.debug(f'ID to be deleted from {table} is: {id}')
       x = requests.delete(
-        f'{self.url}/v1/{table}/id',
+        f'{self.url}/v1/{table}/{id}',
         headers=self.api_headers,
         timeout=10,
       )

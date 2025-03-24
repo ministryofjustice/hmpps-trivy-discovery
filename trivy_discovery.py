@@ -80,6 +80,7 @@ def upload_sc_trivy_scan_results(component, image_tag, result, sc):
         SC_API_ENVIRONMENTS_ENDPOINT, 'component][name', component
       ):
         for environment in environments:
+          log.debug(f'environment: {environment}')
           environment_id = environment['id']
           sc.update('environments', environment_id, {'trivy_scan': trivy_scan_id})
           log.info(

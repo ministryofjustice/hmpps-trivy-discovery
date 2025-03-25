@@ -4,7 +4,6 @@ import sys
 import json
 import logging
 import threading
-import logging
 import subprocess
 import urllib.request
 import tarfile
@@ -12,7 +11,6 @@ from time import sleep
 from datetime import datetime
 from classes.service_catalogue import ServiceCatalogue
 from classes.slack import Slack
-
 
 SC_API_ENDPOINT = os.getenv('SERVICE_CATALOGUE_API_ENDPOINT')
 SC_API_TOKEN = os.getenv('SERVICE_CATALOGUE_API_KEY')
@@ -26,6 +24,11 @@ SLACK_BOT_TOKEN = os.getenv('SLACK_BOT_TOKEN', '')
 # Set maximum number of concurrent threads to run, try to avoid secondary github api limits.
 MAX_THREADS = 5
 LOG_LEVEL = os.environ.get('LOG_LEVEL', 'INFO').upper()
+
+logging.basicConfig(
+  format='[%(asctime)s] %(levelname)s %(threadName)s %(message)s', level=LOG_LEVEL
+)
+log = logging.getLogger(__name__)
 
 
 def install_trivy(slack):
@@ -225,10 +228,6 @@ def get_new_container_image_list(image_list, sc):
 ################# Main functions #################
 
 if __name__ == '__main__':
-  logging.basicConfig(
-    format='[%(asctime)s] %(levelname)s %(threadName)s %(message)s', level=LOG_LEVEL
-  )
-  log = logging.getLogger(__name__)
   if '-f' in os.sys.argv or '--full' in os.sys.argv:
     log.info('Running Trivy scan on all container images in Service Catalogue')
     log.info('********************************************************************')

@@ -102,11 +102,11 @@ def extract_image_list(environments_data):
       component_attributes = (
         component_data.get('attributes', {}) if component_data else {}
       )
+      component_name = component_attributes.get('name')
       if build_image_tag := environment.get('attributes', {}).get('build_image_tag'):
         log.debug(
           f'environment build image tag for {component_attributes.get("name")}: {environment.get("attributes").get("build_image_tag")}'
         )
-        component_name = component_attributes.get('name')
         container_image_repo = component_attributes.get('container_image')
         filtered_component = {
           'component_name': component_name,

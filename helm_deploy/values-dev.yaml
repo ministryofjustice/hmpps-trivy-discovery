@@ -11,6 +11,7 @@ discoveryCronJob:
   env:
     REDIS_MAX_STREAM_LENGTH: 360
     LOG_LEVEL: debug
-  namespace_secrets:
-    hmpps-trivy-discovery:
-      SC_FILTER: "SC_FILTER"
+
+namespace_secrets:
+  hmpps-trivy-discovery:
+    SC_FILTER: "SC_FILTER"

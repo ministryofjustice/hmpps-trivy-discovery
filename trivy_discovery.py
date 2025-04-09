@@ -12,6 +12,7 @@ from time import sleep
 from datetime import datetime
 from classes.service_catalogue import ServiceCatalogue
 from classes.slack import Slack
+import processes.update_sc_scheduled_jobs as update_sc_scheduled_job
 
 
 SC_API_ENDPOINT = os.getenv('SERVICE_CATALOGUE_API_ENDPOINT')
@@ -233,10 +234,12 @@ if __name__ == '__main__':
     log.info('Running Trivy scan on all container images in Service Catalogue')
     log.info('********************************************************************')
     incremental_scan = False
+    job_name = 'hmpps-trivy-discovery-full'
   elif '-i' in os.sys.argv or '--incremental' in os.sys.argv:
     log.info('Running Trivy scan on new images only')
     log.info('********************************************************************')
     incremental_scan = True
+    job_name = 'hmpps-trivy-discovery-incremental'
   else:
     log.error(
       'Invalid argument. Use -i or --incremental for incremental scan or -f or --full for full scan'
@@ -276,3 +279,10 @@ if __name__ == '__main__':
 
   cache_dir = '/app/trivy_cache' if os.path.exists('/app/trivy_cache') else '/tmp'
   scan_prod_image(image_list, cache_dir, sc)
+
+  try:
+    update_sc_scheduled_job.process_sc_scheduled_jobs(services, job_name, True)
+    log.info("Github discovery job completed successfully.")
+  except Exception as e:
+    log.error(f"Github discovery job failed with error: {e}")
+    update_sc_scheduled_job(services, job_name, False)

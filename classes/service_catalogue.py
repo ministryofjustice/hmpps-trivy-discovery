@@ -36,7 +36,11 @@ class ServiceCatalogue:
 
     self.products = 'products'
     self.products_get = f'{self.products}?populate[0]=parent&populate[1]=children&populate[2]=product_set&populate[3]=service_area&populate[4]=team{self.product_filter}{pagination_page_size}{sort_filter}'
-
+    
+    self.scheduled_jobs = 'scheduled-jobs'
+    self.scheduled_jobs_trivy_discovery_full_get= f'{self.scheduled_jobs}?filters[name][$eq]=hmpps-trivy-discovery-full'
+    self.scheduled_jobs_trivy_discovery_incremental_get= f'{self.scheduled_jobs}?filters[name][$eq]=hmpps-trivy-discovery-incremental'
+    
     self.github_teams = 'github-teams'
     self.environments = 'environments'
     self.environments_get = (

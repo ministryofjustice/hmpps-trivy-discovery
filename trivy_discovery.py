@@ -82,10 +82,10 @@ def main():
 
   if globals.error_messages:
     update_sc_scheduled_job.process_sc_scheduled_jobs('Errors')
-    log.info("SharePoint discovery job completed  with errors.")
+    log.info("Trivy discovery job completed  with errors.")
   else:
     update_sc_scheduled_job.process_sc_scheduled_jobs('Succeeded')
-    log.info("SharePoint discovery job completed successfully.")
+    log.info("Trivy discovery job completed successfully.")
 
 if __name__ == '__main__':
   main()

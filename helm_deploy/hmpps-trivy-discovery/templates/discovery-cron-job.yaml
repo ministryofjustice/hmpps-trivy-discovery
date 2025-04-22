@@ -58,7 +58,7 @@ spec:
         spec:
           containers:
             - name: hmpps-trivy-discovery
-              image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+              image: "{{ .Values.image.repository }}:{{ .Values.version }}"
               command: ["python", "-u", "/app/trivy_discovery.py", "-i"]
               env:
                 - name: PATH

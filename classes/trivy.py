@@ -7,6 +7,7 @@ import logging
 import os
 import globals
 import json
+import re
 from time import sleep
 import utils.update_sc_scheduled_jobs as update_sc_scheduled_job
 import utils.update_trivy_scan_results as trivy_scan_results
@@ -81,15 +82,24 @@ def scan_image(component, cache_dir):
     )
 
     # Display the appropriate message
+    result_json =[]
     if has_vulnerabilities:
       result_json = results_section
     else:
-      result_json = {'message': 'No vulnerabilities in container image'}
+      result_json.append({'message': 'No vulnerabilities in container image'})
 
     log.info(f'Trivy scan result for {image_name}:\n{result_json}')
     trivy_scan_results.upload(component_name, component_build_image_tag, result_json)
   except subprocess.CalledProcessError as e:
     log.error(f'Trivy scan failed for {image_name}: {e.stderr}')
+    fatal_error_match = re.search(r"FATAL\s+(.*)", e.stderr)
+    result_json = []
+    if fatal_error_match:
+      fatal_error_message = fatal_error_match.group(1)
+      result_json.append({"error": fatal_error_message})
+    else:
+      result_json.append({"error": e.stderr})
+    trivy_scan_results.upload(component_name, component_build_image_tag, result_json, 'Failed')
 
 def scan_prod_image(components, max_threads):
   sc = globals.services.sc

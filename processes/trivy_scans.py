@@ -42,10 +42,24 @@ def get_new_container_image_list(image_list):
   log = globals.services.log
   new_image_list = []
   trivy_data = sc.get_all_records(sc.trivy_scans_get)
+  filtered_trivy_data = [
+    trivy for trivy in trivy_data
+    if trivy['attributes'].get('scan_status') == 'Succeeded'
+    or (
+      trivy['attributes'].get('scan_status') == 'Failed'
+      and all(
+        "unable to find the specified image" in result.get('error', '').lower()
+        for result in trivy['attributes'].get('trivy_scan_results', [])
+      )
+    )
+  ]
   for image in image_list:
     build_image_tag = image['build_image_tag']
+    name = image['component_name']
     if not any(
-      trivy['attributes']['build_image_tag'] == build_image_tag for trivy in trivy_data
+      trivy['attributes']['build_image_tag'] == build_image_tag and
+      trivy['attributes']['name'] == name
+      for trivy in filtered_trivy_data
     ):
       new_image_list.append(image)
   log.info(f'Number of new images to scan: {len(new_image_list)}')

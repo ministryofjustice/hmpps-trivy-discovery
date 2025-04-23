@@ -4,7 +4,7 @@ from datetime import datetime
 from classes.service_catalogue import ServiceCatalogue
 import globals 
 
-def upload(component, image_tag, result):
+def upload(component, image_tag, result, scan_status = 'Succeeded'):
   log = globals.services.log
   sc = globals.services.sc
   trivy_scan_data = {
@@ -12,6 +12,7 @@ def upload(component, image_tag, result):
     'trivy_scan_results': result,
     'build_image_tag': image_tag,
     'trivy_scan_timestamp': datetime.now().isoformat(),
+    'scan_status': scan_status
   }
 
   if response := sc.add(sc.trivy_scans_get, trivy_scan_data):

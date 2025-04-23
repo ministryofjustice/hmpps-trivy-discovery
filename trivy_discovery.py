@@ -11,16 +11,6 @@ import classes.trivy as trivy
 import globals
 import utils.update_sc_scheduled_jobs as update_sc_scheduled_job
 
-
-# SC_API_ENDPOINT = os.getenv('SERVICE_CATALOGUE_API_ENDPOINT')
-# SC_API_TOKEN = os.getenv('SERVICE_CATALOGUE_API_KEY')
-# SC_FILTER = os.getenv('SC_FILTER', '')
-# SC_SORT = ''
-# SC_API_ENVIRONMENTS_ENDPOINT = 'environments?populate=component'
-# SC_API_TRIVY_SCANS_ENDPOINT = 'trivy-scans?populate=*'
-# SLACK_ALERT_CHANNEL = os.getenv('SLACK_ALERT_CHANNEL', '')
-# SLACK_BOT_TOKEN = os.getenv('SLACK_BOT_TOKEN', '')
-
 # Set maximum number of concurrent threads to run, try to avoid secondary github api limits.
 max_threads = 5
 LOG_LEVEL = os.environ.get('LOG_LEVEL', 'INFO').upper()

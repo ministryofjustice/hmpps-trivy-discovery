@@ -67,7 +67,7 @@ def main():
   trivy.install(services)
   image_list = trivy_scans.get_image_list(services)
   if job.name == 'hmpps-trivy-discovery-full':
-    trivy_scans.delete_sc_trivy_scan_results()
+    trivy_scans.delete_sc_trivy_scan_results(services)
   
   trivy.scan_prod_image(services, image_list, max_threads)
 

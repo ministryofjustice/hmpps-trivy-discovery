@@ -99,7 +99,7 @@ def scan_image(services, component, cache_dir):
       result_json.append({"error": fatal_error_message})
     else:
       result_json.append({"error": e.stderr})
-    trivy_scan_results.upload(component_name, component_build_image_tag, result_json, 'Failed')
+    trivy_scans.update(services, component_name, component_build_image_tag, result_json, 'Failed')
 
 def scan_prod_image(services, components, max_threads):
   sc = services.sc

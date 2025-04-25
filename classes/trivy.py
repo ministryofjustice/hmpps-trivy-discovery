@@ -5,17 +5,17 @@ import threading
 import sys
 import logging
 import os
-import globals
 import json
 import re
 from time import sleep
-import utils.update_sc_scheduled_jobs as update_sc_scheduled_job
-import utils.update_trivy_scan_results as trivy_scan_results
+from utilities.discovery import job
+import processes.scheduled_jobs as sc_scheduled_job
+import processes.trivy_scans as trivy_scans
 
 log = logging.getLogger(__name__)
 cache_dir = '/app/trivy_cache' if os.path.exists('/app/trivy_cache') else '/tmp'
 
-def install():
+def install(services):
   try:
     # Get the latest Trivy version
     trivy_version = subprocess.check_output(
@@ -41,12 +41,12 @@ def install():
 
   except subprocess.CalledProcessError as e:
     log.error(f'Failed to install Trivy: {e}', file=sys.stderr)
-    globals.error_messages.append(f'Failed to install Trivy: {e}')
-    update_sc_scheduled_job.process_sc_scheduled_jobs('Failed')
-    globals.services.slack.alert(f'hmpps-trivy-discovery: failed to install Trivy - {e}')
+    job.error_messages.append(f'Failed to install Trivy: {e}')
+    sc_scheduled_job.update(services, 'Failed')
+    job.services.slack.alert(f'hmpps-trivy-discovery: failed to install Trivy - {e}')
     raise SystemExit(e) from e
 
-def scan_image(component, cache_dir):
+def scan_image(services, component, cache_dir):
   component_name = component['component_name']
   component_build_image_tag = component['build_image_tag']
   image_name = f'{component["container_image_repo"]}:{component_build_image_tag}'
@@ -89,7 +89,7 @@ def scan_image(component, cache_dir):
       result_json.append({'message': 'No vulnerabilities in container image'})
 
     log.info(f'Trivy scan result for {image_name}:\n{result_json}')
-    trivy_scan_results.upload(component_name, component_build_image_tag, result_json)
+    trivy_scans.update(services, component_name, component_build_image_tag, result_json)
   except subprocess.CalledProcessError as e:
     log.error(f'Trivy scan failed for {image_name}: {e.stderr}')
     fatal_error_match = re.search(r"FATAL\s+(.*)", e.stderr)
@@ -99,10 +99,10 @@ def scan_image(component, cache_dir):
       result_json.append({"error": fatal_error_message})
     else:
       result_json.append({"error": e.stderr})
-    trivy_scan_results.upload(component_name, component_build_image_tag, result_json, 'Failed')
+    trivy_scans.update(services, component_name, component_build_image_tag, result_json, 'Failed')
 
-def scan_prod_image(components, max_threads):
-  sc = globals.services.sc
+def scan_prod_image(services, components, max_threads):
+  sc = services.sc
   log.info(f'Starting scan for {len(components)} components...')
   threads = []
 
@@ -112,7 +112,7 @@ def scan_prod_image(components, max_threads):
       continue
 
     if 'build_image_tag' in component and component['build_image_tag']:
-      t = threading.Thread(target=scan_image, args=(component, cache_dir))
+      t = threading.Thread(target=scan_image, args=(services, component, cache_dir))
       threads.append(t)
 
       # Start the thread

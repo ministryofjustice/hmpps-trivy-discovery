@@ -7,25 +7,25 @@ from time import sleep
 from datetime import datetime
 from classes.slack import Slack
 from classes.service_catalogue import ServiceCatalogue
-import globals
-import utils.update_sc_scheduled_jobs as update_sc_scheduled_job
+from utilities.discovery import job
+import processes.scheduled_jobs as sc_scheduled_job
 
-def get_image_list(max_threads=10):
-  sc = globals.services.sc
+def get_image_list(services, max_threads=10):
+  sc = services.sc
   environments_data = sc.get_all_records(sc.environments_get)
   if not environments_data:
-    globals.error_messages.append(f'Errors occurred while fetching environment data from Service Catalogue')
-    update_sc_scheduled_job.process_sc_scheduled_jobs('Failed')
+    job.error_messages.append(f'Errors occurred while fetching environment data from Service Catalogue')
+    sc_scheduled_job.update(services,'Failed')
 
   # Extract image list data from environments data
-  image_list = extract_image_list(environments_data)
-  if globals.job_name == 'hmpps-trivy-discovery-incremental':
-    image_list = get_new_container_image_list(image_list)
+  image_list = extract_image_list(services, environments_data)
+  if job.name == 'hmpps-trivy-discovery-incremental':
+    image_list = get_new_container_image_list(services, image_list)
   return image_list
     
-def delete_sc_trivy_scan_results():
-  sc = globals.services.sc
-  log = globals.services.log
+def delete_sc_trivy_scan_results(services):
+  sc = services.sc
+  log = services.log
   # Fetch the list of records
   trivy_data = sc.get_all_records(sc.trivy_scans_get)
   for record in trivy_data:
@@ -35,11 +35,11 @@ def delete_sc_trivy_scan_results():
       log.info(f'Deleted Trivy scan record with ID: {record_id}')
     except requests.exceptions.RequestException as e:
       log.error(f'Error deleting Trivy scan record with ID {record_id}: {e}')
-      globals.error_messages.append(f'Error deleting Trivy scan record with ID {record_id}: {e}')
+      job.error_messages.append(f'Error deleting Trivy scan record with ID {record_id}: {e}')
 
-def get_new_container_image_list(image_list):
-  sc = globals.services.sc
-  log = globals.services.log
+def get_new_container_image_list(services, image_list):
+  sc = services.sc
+  log = services.log
   new_image_list = []
   trivy_data = sc.get_all_records(sc.trivy_scans_get)
   filtered_trivy_data = [
@@ -65,8 +65,8 @@ def get_new_container_image_list(image_list):
   log.info(f'Number of new images to scan: {len(new_image_list)}')
   return new_image_list
 
-def extract_image_list(environments_data):
-  log = globals.services.log
+def extract_image_list(services, environments_data):
+  log = services.log
   filtered_components = []
   unique_components = set()
 
@@ -101,3 +101,39 @@ def extract_image_list(environments_data):
   log.info(f'Number of environments records in SC: {len(environments_data)}')
   log.info(f'Number of images: {len(filtered_components)}')
   return filtered_components
+
+def update(services, component, image_tag, result, scan_status = 'Succeeded'):
+  log = services.log
+  sc = services.sc
+  trivy_scan_data = {
+    'name': component,
+    'trivy_scan_results': result,
+    'build_image_tag': image_tag,
+    'trivy_scan_timestamp': datetime.now().isoformat(),
+    'scan_status': scan_status
+  }
+
+  if response := sc.add(sc.trivy_scans_get, trivy_scan_data):
+    trivy_scan_id = response.get('data', {}).get('id', {})
+    if trivy_scan_id:
+      # rather unpleasant workaround with the label field since it's underneath component
+      if environments := sc.get_filtered_data('environments' , 'component][name', component):
+        for environment in environments:
+          if environment['attributes']['build_image_tag'] == image_tag:
+            log.debug(f'environment: {environment}')
+            environment_id = environment['id']
+            try:
+              sc.update('environments', environment_id, {'trivy_scan': trivy_scan_id})
+              log.info(
+                f'Updated environment {environment_id} with Trivy scan ID: {trivy_scan_id}'
+              )
+            except Exception as e:
+              log.error(f'Failed to update environment {environment_id} with Trivy scan ID: {trivy_scan_id} - {e}')
+              job.error_messages.append(f'Failed to update environment {environment_id} with Trivy scan ID: {trivy_scan_id} - {e}')
+      else:
+        log.warning(f'No environments found for {component}')
+    else:
+      log.warning(f'No trivy_scan_id found for {component}')
+  else:
+    log.error(f'Failed to upload Trivy scan results for {component}: error code {response.status_code}')
+    job.error_messages.append(f'Failed to upload Trivy scan results for {component}: error code {response.status_code}')

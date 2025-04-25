@@ -36,7 +36,7 @@ def main():
     log.info('********************************************************************')
   else:
     log.error(
-      'Invalid argument. Use -i or --incremental for incremental scan or -f or --full for full scan'
+      'Invalid argument. Use -i or --incremental for incremental scan or -f or --full for full scan.'
     )
     sys.exit(1)
 

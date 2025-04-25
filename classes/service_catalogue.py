@@ -1,7 +1,7 @@
 import requests
 import logging
 import json
-import globals
+from utilities.discovery import job
 
 class ServiceCatalogue:
   def __init__(self, params, log_level=logging.INFO):
@@ -37,7 +37,7 @@ class ServiceCatalogue:
     #self.environments_get = (f'{self.environments}?populate[0]=component&pagination[pageSize]=10&filters[component][name]=offender-management-allocation-manager')
     self.trivy_scans = 'trivy-scans'
     self.trivy_scans_get = (f'{self.trivy_scans}?populate=*')
-    self.scheduled_jobs_get = f'scheduled-jobs?filters[name][$eq]={globals.job_name}'
+    self.scheduled_jobs_get = f'scheduled-jobs?filters[name][$eq]={job.name}'
 
     self.connection_ok = self.test_connection()
 

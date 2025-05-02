@@ -8,7 +8,7 @@ from classes.service_catalogue import ServiceCatalogue
 from classes.slack import Slack
 import processes.trivy_scans as trivy_scans
 import classes.trivy as trivy
-from utilities.discovery import job
+from utilities.job_log_handling import log_debug, log_error, log_info, log_critical, job
 import processes.scheduled_jobs as sc_scheduled_job
 
 # Set maximum number of concurrent threads to run, try to avoid secondary github api limits.
@@ -28,14 +28,14 @@ def main():
   log = logging.getLogger(__name__)
   if '-f' in os.sys.argv or '--full' in os.sys.argv:
     job.name = 'hmpps-trivy-discovery-full'
-    log.info('Running Trivy scan on all container images in Service Catalogue')
-    log.info('********************************************************************')
+    log_info('Running Trivy scan on all container images in Service Catalogue')
+    log_info('********************************************************************')
   elif '-i' in os.sys.argv or '--incremental' in os.sys.argv:
     job.name = 'hmpps-trivy-discovery-incremental'
-    log.info('Running Trivy scan on new images only')
-    log.info('********************************************************************')
+    log_info('Running Trivy scan on new images only')
+    log_info('********************************************************************')
   else:
-    log.error(
+    log_error(
       'Invalid argument. Use -i or --incremental for incremental scan or -f or --full for full scan.'
     )
     sys.exit(1)
@@ -59,7 +59,7 @@ def main():
   slack =services.slack
 
   if not sc.connection_ok:
-    log.error('Failed to connect to the Service Catalogue. Exiting...')
+    log_error('Failed to connect to the Service Catalogue. Exiting...')
     slack.alert('hmpps-trivy-discovery: failed to connect to the Service Catalogue')
     sys.exit(1)
 
@@ -73,10 +73,10 @@ def main():
 
   if job.error_messages:
     sc_scheduled_job.update(services, 'Errors')
-    log.info("Trivy discovery job completed  with errors.")
+    log_info("Trivy discovery job completed  with errors.")
   else:
     sc_scheduled_job.update(services, 'Succeeded')
-    log.info("Trivy discovery job completed successfully.")
+    log_info("Trivy discovery job completed successfully.")
 
 if __name__ == '__main__':
   main()

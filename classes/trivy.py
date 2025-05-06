@@ -23,6 +23,12 @@ def install(services):
       shell=True,
       text=True,
     ).strip()
+    if not trivy_version:
+      log_error('Failed to retrieve Trivy version')
+      sc_scheduled_job.update(services, 'Failed')
+      services.slack.alert('hmpps-trivy-discovery: failed to install Trivy - Failed to retrieve version')
+      raise SystemExit('Failed to retrieve Trivy version')
+    
     log_info(f'Trivy version: {trivy_version}')
     trivy_version_stripped = trivy_version.lstrip('v')
     # Define the URL for the Trivy binary

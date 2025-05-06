@@ -7,14 +7,14 @@ from time import sleep
 from datetime import datetime
 from classes.slack import Slack
 from classes.service_catalogue import ServiceCatalogue
-from utilities.discovery import job
+from utilities.job_log_handling import log_debug, log_error, log_info, log_critical, log_warning, job
 import processes.scheduled_jobs as sc_scheduled_job
 
 def get_image_list(services, max_threads=10):
   sc = services.sc
   environments_data = sc.get_all_records(sc.environments_get)
   if not environments_data:
-    job.error_messages.append(f'Errors occurred while fetching environment data from Service Catalogue')
+    log_error(f'Errors occurred while fetching environment data from Service Catalogue')
     sc_scheduled_job.update(services,'Failed')
 
   # Extract image list data from environments data
@@ -32,9 +32,9 @@ def delete_sc_trivy_scan_results(services):
     record_id = record['id']
     try:
       sc.delete(sc.trivy_scans, record_id)
-      log.info(f'Deleted Trivy scan record with ID: {record_id}')
+      log_info(f'Deleted Trivy scan record with ID: {record_id}')
     except requests.exceptions.RequestException as e:
-      log.error(f'Error deleting Trivy scan record with ID {record_id}: {e}')
+      log_error(f'Error deleting Trivy scan record with ID {record_id}: {e}')
       job.error_messages.append(f'Error deleting Trivy scan record with ID {record_id}: {e}')
 
 def get_new_container_image_list(services, image_list):
@@ -62,7 +62,7 @@ def get_new_container_image_list(services, image_list):
       for trivy in filtered_trivy_data
     ):
       new_image_list.append(image)
-  log.info(f'Number of new images to scan: {len(new_image_list)}')
+  log_info(f'Number of new images to scan: {len(new_image_list)}')
   return new_image_list
 
 def extract_image_list(services, environments_data):
@@ -78,28 +78,29 @@ def extract_image_list(services, environments_data):
       )
       component_name = component_attributes.get('name')
       if build_image_tag := environment.get('attributes', {}).get('build_image_tag'):
-        log.debug(
+        log_debug(
           f'environment build image tag for {component_attributes.get("name")}: {environment.get("attributes").get("build_image_tag")}'
         )
         container_image_repo = component_attributes.get('container_image')
-        filtered_component = {
-          'component_name': component_name,
-          'container_image_repo': container_image_repo,
-          'build_image_tag': build_image_tag,
-        }
-        log.debug(f'filtered_component: {filtered_component}')
-        # Convert the dictionary to a tuple of items to make it hashable
-        component_tuple = tuple(filtered_component.items())
-        if component_tuple not in unique_components:
-          unique_components.add(component_tuple)
-          filtered_components.append(filtered_component)
+        if container_image_repo:
+          filtered_component = {
+            'component_name': component_name,
+            'container_image_repo': container_image_repo,
+            'build_image_tag': build_image_tag,
+          }
+          log_debug(f'filtered_component: {filtered_component}')
+          # Convert the dictionary to a tuple of items to make it hashable
+          component_tuple = tuple(filtered_component.items())
+          if component_tuple not in unique_components:
+            unique_components.add(component_tuple)
+            filtered_components.append(filtered_component)
       else:
-        log.warning(
+        log_warning(
           f'No build image tag for {environment.get("attributes").get("name")} in {component_name}'
         )
 
-  log.info(f'Number of environments records in SC: {len(environments_data)}')
-  log.info(f'Number of images: {len(filtered_components)}')
+  log_info(f'Number of environments records in SC: {len(environments_data)}')
+  log_info(f'Number of images: {len(filtered_components)}')
   return filtered_components
 
 def update(services, component, image_tag, result, scan_status = 'Succeeded'):
@@ -120,20 +121,19 @@ def update(services, component, image_tag, result, scan_status = 'Succeeded'):
       if environments := sc.get_filtered_data('environments' , 'component][name', component):
         for environment in environments:
           if environment['attributes']['build_image_tag'] == image_tag:
-            log.debug(f'environment: {environment}')
+            log_debug(f'environment: {environment}')
             environment_id = environment['id']
             try:
               sc.update('environments', environment_id, {'trivy_scan': trivy_scan_id})
-              log.info(
+              log_info(
                 f'Updated environment {environment_id} with Trivy scan ID: {trivy_scan_id}'
               )
             except Exception as e:
-              log.error(f'Failed to update environment {environment_id} with Trivy scan ID: {trivy_scan_id} - {e}')
-              job.error_messages.append(f'Failed to update environment {environment_id} with Trivy scan ID: {trivy_scan_id} - {e}')
+              log_error(f'Failed to update environment {environment_id} with Trivy scan ID: {trivy_scan_id} - {e}')
       else:
-        log.warning(f'No environments found for {component}')
+        log_warning(f'No environments found for {component}')
     else:
-      log.warning(f'No trivy_scan_id found for {component}')
+      log_warning(f'No trivy_scan_id found for {component}')
   else:
-    log.error(f'Failed to upload Trivy scan results for {component}: error code {response.status_code}')
-    job.error_messages.append(f'Failed to upload Trivy scan results for {component}: error code {response.status_code}')
+    log_error(f'Failed to upload Trivy scan results for {component}: error code {response.status_code}')
+    

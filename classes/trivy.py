@@ -67,7 +67,6 @@ def scan_image(services, component, cache_dir, retry_count):
         'HIGH,CRITICAL',
         '--format',
         'json',
-        '--ignore-unfixed',
         '--skip-dirs',
         '/usr/local/lib/node_modules/npm',
         '--skip-files',
@@ -143,3 +142,4 @@ def scan_prod_image(services, components, max_threads):
     t.join()
 
   log_info('Completed all Trivy scans.')
+

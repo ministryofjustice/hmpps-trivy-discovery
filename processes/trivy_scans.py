@@ -3,6 +3,7 @@ import os
 import json
 import requests
 import re
+import sys
 from time import sleep
 from datetime import datetime
 from classes.slack import Slack
@@ -77,40 +78,61 @@ def extract_image_list(services, environments_data):
         component_data.get('attributes', {}) if component_data else {}
       )
       component_name = component_attributes.get('name')
-      if build_image_tag := environment.get('attributes', {}).get('build_image_tag'):
+
+      build_image_tag = environment.get('attributes', {}).get('build_image_tag')
+      if not build_image_tag:
+        build_image_tag = 'latest'
+        log_warning(
+          f'Build image tag for {component_name} is "latest", this may cause issues with image identification.'
+        )
+      container_image_repo = component_attributes.get('container_image')
+      if container_image_repo:
         log_debug(
           f'environment build image tag for {component_attributes.get("name")}: {environment.get("attributes").get("build_image_tag")}'
         )
-        container_image_repo = component_attributes.get('container_image')
-        if container_image_repo:
-          filtered_component = {
+        filtered_component = {
             'component_name': component_name,
             'container_image_repo': container_image_repo,
             'build_image_tag': build_image_tag,
-          }
-          log_debug(f'filtered_component: {filtered_component}')
-          # Convert the dictionary to a tuple of items to make it hashable
-          component_tuple = tuple(filtered_component.items())
-          if component_tuple not in unique_components:
-            unique_components.add(component_tuple)
-            filtered_components.append(filtered_component)
+        }
+        log_debug(f'filtered_component: {filtered_component}')
+        component_tuple = tuple(filtered_component.items())
+        if component_tuple not in unique_components:
+          unique_components.add(component_tuple)
+          filtered_components.append(filtered_component)
       else:
-        log_warning(
-          f'No build image tag for {environment.get("attributes").get("name")} in {component_name}'
-        )
+        namespace = environment.get('attributes', {}).get('namespace')
+        env_name = environment.get('attributes', {}).get('name')
+        if component_name:
+          log_warning(f'No container image repo for {component_name} - {env_name} - {namespace}')
+        else:
+          log_info(f'Orphaned environment record for namespace {env_name} - {namespace}')
 
   log_info(f'Number of environments records in SC: {len(environments_data)}')
   log_info(f'Number of images: {len(filtered_components)}')
   return filtered_components
 
-def update(services, component, image_tag, result, scan_status = 'Succeeded'):
+def update(services, component, image_tag, result, scan_summary, scan_status = 'Succeeded'):
   log = services.log
   sc = services.sc
+  MAX_SIZE = 1000000
+
+  serialized_result = json.dumps(result)
+  result_size = len(serialized_result.encode('utf-8'))
+  if result_size > MAX_SIZE:
+    temp_scan_summary = scan_summary.copy()
+    del scan_summary["scan_result"]
+    del temp_scan_summary["summary"]
+    result = temp_scan_summary.copy()
+    result['message'] = 'Result truncated due to size limit'
+    log.warning(f"{component} - {image_tag}  Due to result size {result_size} larger than limit truncated result to scan summary only.")
+
   trivy_scan_data = {
     'name': component,
     'trivy_scan_results': result,
     'build_image_tag': image_tag,
     'trivy_scan_timestamp': datetime.now().isoformat(),
+    'scan_summary': scan_summary,
     'scan_status': scan_status
   }
 

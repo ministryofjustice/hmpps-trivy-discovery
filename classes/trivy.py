@@ -63,16 +63,12 @@ def scan_image(services, component, cache_dir, retry_count):
         'trivy',
         'image',
         image_name,
-        '--severity',
-        'HIGH,CRITICAL',
         '--format',
         'json',
         '--skip-dirs',
         '/usr/local/lib/node_modules/npm',
         '--skip-files',
         '/app/agent.jar',
-        '--cache-dir',
-        cache_dir,
       ],
       capture_output=True,
       text=True,
@@ -93,7 +89,8 @@ def scan_image(services, component, cache_dir, retry_count):
       result_json.append({'message': 'No vulnerabilities in container image'})
 
     log_info(f'Trivy scan result for {image_name}:\n{result_json}')
-    trivy_scans.update(services, component_name, component_build_image_tag, result_json)
+    scan_summary = scan_result_summary(result_json)
+    trivy_scans.update(services, component_name, component_build_image_tag, result_json, scan_summary)
   except subprocess.CalledProcessError as e:
     result_json = []
     if "DB error" in e.stderr and retry_count <= 3:
@@ -109,7 +106,45 @@ def scan_image(services, component, cache_dir, retry_count):
         result_json.append({"error": fatal_error_message})
       else:
         result_json.append({"error": e.stderr})
-      trivy_scans.update(services, component_name, component_build_image_tag, result_json, 'Failed')
+      scan_summary = {}
+      trivy_scans.update(services, component_name, component_build_image_tag, result_json, scan_summary, 'Failed')
+
+def scan_result_summary(scan_results):
+  extracted_entries = []
+  summary = {"scan_result": {"fixed": [], "unfixed": []}, "summary": {}}
+        
+  for result in scan_results:
+    if 'Vulnerabilities' in result and isinstance(result['Vulnerabilities'], list):
+      for vulnerability in result['Vulnerabilities']:
+        entry = {
+          "PkgName": vulnerability["PkgName"],
+          "VulnerabilityID": vulnerability["VulnerabilityID"],
+          "Severity": vulnerability["Severity"],
+          "InstalledVersion": vulnerability["InstalledVersion"],
+          "FixedVersion": vulnerability.get("FixedVersion", "N/A")
+        }
+                    
+        if entry["FixedVersion"] == "N/A":
+          summary["scan_result"]["unfixed"].append(entry)
+        else:
+          summary["scan_result"]["fixed"].append(entry)
+        
+  severity_counts = {"fixed": {}, "unfixed": {}}
+        
+  for category in ["fixed", "unfixed"]:
+    for severity in ["HIGH", "CRITICAL", "MEDIUM", "LOW", "UNKNOWN"]:
+      if severity not in severity_counts[category]:
+        severity_counts[category][severity] = 0
+            
+    for entry in summary["scan_result"][category]:
+      severity = entry["Severity"]
+      if severity not in severity_counts[category]:
+        severity_counts[category][severity] = 0
+      severity_counts[category][severity] += 1
+        
+      # Add severity counts to the summary
+  summary["summary"] = severity_counts
+  return summary
 
 def scan_prod_image(services, components, max_threads):
   sc = services.sc
@@ -121,7 +156,7 @@ def scan_prod_image(services, components, max_threads):
       log_error(f'Invalid component format: {component}')
       continue
 
-    if 'build_image_tag' in component and component['build_image_tag']:
+    if 'build_image_tag' in component and component['build_image_tag'] and component['component_name'] =='hmpps-service-catalogue':
       initial_retry_count = 1
       t = threading.Thread(target=scan_image, args=(services, component, cache_dir, initial_retry_count))
       threads.append(t)

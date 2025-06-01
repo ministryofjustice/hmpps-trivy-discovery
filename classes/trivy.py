@@ -156,7 +156,7 @@ def scan_prod_image(services, components, max_threads):
       log_error(f'Invalid component format: {component}')
       continue
 
-    if 'build_image_tag' in component and component['build_image_tag'] and component['component_name'] =='hmpps-service-catalogue':
+    if 'build_image_tag' in component and component['build_image_tag']:
       initial_retry_count = 1
       t = threading.Thread(target=scan_image, args=(services, component, cache_dir, initial_retry_count))
       threads.append(t)

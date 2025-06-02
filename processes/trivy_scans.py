@@ -112,7 +112,7 @@ def extract_image_list(services, environments_data):
   log_info(f'Number of images: {len(filtered_components)}')
   return filtered_components
 
-def update(services, component, image_tag, result, scan_summary, scan_status = 'Succeeded'):
+def update(services, component, image_name, image_tag, result, scan_summary, scan_status = 'Succeeded'):
   log = services.log
   sc = services.sc
   MAX_SIZE = 1000000
@@ -124,7 +124,7 @@ def update(services, component, image_tag, result, scan_summary, scan_status = '
     result.append({
         "error": (
             "Sorry, results too big. Please run the scan locally to get the raw data: "
-            "trivy image ghcr.io/ministryofjustice/hmpps-service-catalogue:latest"
+            "trivy image { image_name }"
         )
     })
 

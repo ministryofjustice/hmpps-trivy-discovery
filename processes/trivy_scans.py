@@ -123,8 +123,8 @@ def update(services, component, image_name, image_tag, result, scan_summary, sca
     result.clear()  # Remove all content from the result
     result.append({
         "error": (
-            "Sorry, results too big. Please run the scan locally to get the raw data: "
-            "trivy image { image_name }"
+            f"Sorry, results too big. Please run the scan locally to get the raw data: "
+            f"trivy image { image_name }"
         )
     })
 

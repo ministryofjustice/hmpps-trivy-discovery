@@ -121,10 +121,12 @@ def update(services, component, image_tag, result, scan_summary, scan_status = '
   result_size = len(serialized_result.encode('utf-8'))
   if result_size > MAX_SIZE:
     result.clear()  # Remove all content from the result
-    result['error'] = (
-      "Sorry, results too big. Please run the scan locally to get the raw data: "
-      "trivy image ghcr.io/ministryofjustice/hmpps-service-catalogue:latest"
-    )
+    result.append({
+        "error": (
+            "Sorry, results too big. Please run the scan locally to get the raw data: "
+            "trivy image ghcr.io/ministryofjustice/hmpps-service-catalogue:latest"
+        )
+    })
 
   trivy_scan_data = {
     'name': component,

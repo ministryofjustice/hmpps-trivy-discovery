@@ -115,17 +115,16 @@ def extract_image_list(services, environments_data):
 def update(services, component, image_tag, result, scan_summary, scan_status = 'Succeeded'):
   log = services.log
   sc = services.sc
-  # MAX_SIZE = 1000000
+  MAX_SIZE = 1000000
 
-  # serialized_result = json.dumps(result)
-  # result_size = len(serialized_result.encode('utf-8'))
-  # if result_size > MAX_SIZE:
-  #   temp_scan_summary = scan_summary.copy()
-  #   del scan_summary["scan_result"]
-  #   del temp_scan_summary["summary"]
-  #   result = temp_scan_summary.copy()
-  #   result['message'] = 'Result truncated due to size limit'
-  #   log.warning(f"{component} - {image_tag}  Due to result size {result_size} larger than limit truncated result to scan summary only.")
+  serialized_result = json.dumps(result)
+  result_size = len(serialized_result.encode('utf-8'))
+  if result_size > MAX_SIZE:
+    result.clear()  # Remove all content from the result
+    result['error'] = (
+      "Sorry, results too big. Please run the scan locally to get the raw data: "
+      "trivy image ghcr.io/ministryofjustice/hmpps-service-catalogue:latest"
+    )
 
   trivy_scan_data = {
     'name': component,

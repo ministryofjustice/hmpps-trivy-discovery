@@ -134,18 +134,27 @@ def update(services, component, image_name, image_tag, result, scan_summary, sca
     'build_image_tag': image_tag,
     'trivy_scan_timestamp': datetime.now().isoformat(),
     'scan_summary': scan_summary,
-    'scan_status': scan_status
+    'scan_status': scan_status,
+    'environments': []
   }
+
+  environments = sc.get_filtered_data('environments' , 'component][name', component)
+  environment_names = []
+  environment_ids = []
+  if image_tag == 'latest':
+    environment_names.append('unknown')
+  else:
+    for environment in environments:
+      if environment['attributes']['build_image_tag'] == image_tag:
+        environment_names.append(environment['attributes']['name'])
+        environment_ids.append(environment['id'])
+  trivy_scan_data['environments'] = environment_names
 
   if response := sc.add(sc.trivy_scans_get, trivy_scan_data):
     trivy_scan_id = response.get('data', {}).get('id', {})
     if trivy_scan_id:
-      # rather unpleasant workaround with the label field since it's underneath component
-      if environments := sc.get_filtered_data('environments' , 'component][name', component):
-        for environment in environments:
-          if environment['attributes']['build_image_tag'] == image_tag:
-            log_debug(f'environment: {environment}')
-            environment_id = environment['id']
+      if environment_ids:
+        for environment_id in environment_ids:
             try:
               sc.update('environments', environment_id, {'trivy_scan': trivy_scan_id})
               log_info(

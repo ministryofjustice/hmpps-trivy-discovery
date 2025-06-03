@@ -63,6 +63,8 @@ def scan_image(services, component, cache_dir, retry_count):
         'trivy',
         'image',
         image_name,
+        '--severity',
+        'HIGH,CRITICAL,UNKNOWN',
         '--format',
         'json',
         '--skip-dirs',
@@ -132,7 +134,7 @@ def scan_result_summary(scan_results):
   severity_counts = {"fixed": {}, "unfixed": {}}
         
   for category in ["fixed", "unfixed"]:
-    for severity in ["HIGH", "CRITICAL", "MEDIUM", "LOW", "UNKNOWN"]:
+    for severity in ["HIGH", "CRITICAL", "UNKNOWN"]:
       if severity not in severity_counts[category]:
         severity_counts[category][severity] = 0
             

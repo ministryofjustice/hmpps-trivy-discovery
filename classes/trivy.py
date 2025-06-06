@@ -63,14 +63,16 @@ def scan_image(services, component, cache_dir, retry_count):
         'trivy',
         'image',
         image_name,
-        '--severity',
-        'HIGH,CRITICAL,UNKNOWN',
         '--format',
         'json',
         '--skip-dirs',
         '/usr/local/lib/node_modules/npm',
         '--skip-files',
         '/app/agent.jar',
+        '--scanners',
+        'secret',
+        '--image-config-scanners',
+        'secret',
       ],
       capture_output=True,
       text=True,
@@ -85,11 +87,12 @@ def scan_image(services, component, cache_dir, retry_count):
 
     # Display the appropriate message
     result_json =[]
-    if has_vulnerabilities:
-      result_json = results_section
-    else:
-      result_json.append({'message': 'No vulnerabilities in container image'})
-
+    # Commented temporarily to save all results 
+    # if has_vulnerabilities:
+    #   result_json = results_section
+    # else:
+    #   result_json.append({'message': 'No vulnerabilities in container image'})
+    result_json = results_section
     log_info(f'Trivy scan result for {image_name}:\n{result_json}')
     scan_summary = scan_result_summary(result_json)
     trivy_scans.update(services, component_name, image_name, component_build_image_tag, result_json, scan_summary)

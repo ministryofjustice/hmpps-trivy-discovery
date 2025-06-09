@@ -95,7 +95,7 @@ def scan_image(services, component, cache_dir, retry_count):
     result_json = results_section
     log_info(f'Trivy scan result for {image_name}:\n{result_json}')
     scan_summary = scan_result_summary(result_json)
-    trivy_scans.update(services, component_name, image_name, component_build_image_tag, result_json, scan_summary)
+    trivy_scans.update(services, component_name, image_name, component_build_image_tag, scan_summary)
   except subprocess.CalledProcessError as e:
     result_json = []
     if "DB error" in e.stderr and retry_count <= 3:
@@ -116,16 +116,15 @@ def scan_image(services, component, cache_dir, retry_count):
 
 def scan_result_summary(scan_result):
   scan_summary = {
-      "scan_summary": {
-          "scan_result": {},
-          "summary": {
-              "os-pkgs": {"fixed": {}, "unfixed": {}},
-              "lang-pkgs": {"fixed": {}, "unfixed": {}},
-              "config": {},
-              "secret": {}
-          }
-      }
+    "scan_result": {},
+    "summary": {
+      "os-pkgs": {"fixed": {}, "unfixed": {}},
+      "lang-pkgs": {"fixed": {}, "unfixed": {}},
+      "config": {},
+      "secret": {}
+    }
   }
+
   def increment_summary(summary_section, severity, fixed=False):
     key = "fixed" if fixed else "unfixed"
     if key not in summary_section:
@@ -144,7 +143,7 @@ def scan_result_summary(scan_result):
     if vulnerabilities:
         for vuln in vulnerabilities:
             class_type = "os-pkgs" if result.get("Type") == "os-pkgs" else "lang-pkgs"
-            scan_summary["scan_summary"]["scan_result"].setdefault(class_type, []).append({
+            scan_summary["scan_result"].setdefault(class_type, []).append({
                 "PkgName": vuln.get("PkgName", "N/A"),
                 "Severity": vuln.get("Severity", "UNKNOWN"),
                 "Description": vuln.get("Description", "N/A"),
@@ -153,7 +152,7 @@ def scan_result_summary(scan_result):
                 "VulnerabilityID": vuln.get("VulnerabilityID", "N/A")
             })
             increment_summary(
-                scan_summary["scan_summary"]["summary"][class_type],
+                scan_summary["summary"][class_type],
                 vuln.get("Severity", "UNKNOWN"),
                 fixed=bool(vuln.get("FixedVersion"))
             )
@@ -161,7 +160,7 @@ def scan_result_summary(scan_result):
     # Process misconfigurations (config)
     if misconfigurations:
         for misconfig in misconfigurations:
-            scan_summary["scan_summary"]["scan_result"].setdefault("config", []).append({
+            scan_summary["scan_result"].setdefault("config", []).append({
                 "Severity": misconfig.get("Severity", "UNKNOWN"),
                 "Description": misconfig.get("Message", "N/A"),
                 "FilePath": result.get("Target", "N/A"),
@@ -169,12 +168,12 @@ def scan_result_summary(scan_result):
                 "AdditionalContext": misconfig.get("Resolution", "N/A")
             })
             severity = misconfig.get("Severity", "UNKNOWN")
-            scan_summary["scan_summary"]["summary"]["config"][severity] = scan_summary["scan_summary"]["summary"]["config"].get(severity, 0) + 1
+            scan_summary["summary"]["config"][severity] = scan_summary["summary"]["config"].get(severity, 0) + 1
 
     # Process secrets (secret)
     if secrets:
         for secret in secrets:
-            scan_summary["scan_summary"]["scan_result"].setdefault("secret", []).append({
+            scan_summary["scan_result"].setdefault("secret", []).append({
                 "Severity": secret.get("Severity", "UNKNOWN"),
                 "Description": secret.get("Title", "N/A"),
                 "FilePath": result.get("Target", "N/A"),
@@ -182,7 +181,7 @@ def scan_result_summary(scan_result):
                 "AdditionalContext": secret.get("Match", "N/A")
             })
             severity = secret.get("Severity", "UNKNOWN")
-            scan_summary["scan_summary"]["summary"]["secret"][severity] = scan_summary["scan_summary"]["summary"]["secret"].get(severity, 0) + 1
+            scan_summary["summary"]["secret"][severity] = scan_summary["summary"]["secret"].get(severity, 0) + 1
   return scan_summary
 
 def scan_prod_image(services, components, max_threads):

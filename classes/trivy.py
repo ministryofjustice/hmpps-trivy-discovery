@@ -63,14 +63,16 @@ def scan_image(services, component, cache_dir, retry_count):
         'trivy',
         'image',
         image_name,
-        '--severity',
-        'HIGH,CRITICAL,UNKNOWN',
         '--format',
         'json',
         '--skip-dirs',
         '/usr/local/lib/node_modules/npm',
         '--skip-files',
         '/app/agent.jar',
+        '--scanners',
+        'vuln,secret,config',
+        '--image-config-scanners',
+        'misconfig,secret',
       ],
       capture_output=True,
       text=True,
@@ -85,14 +87,15 @@ def scan_image(services, component, cache_dir, retry_count):
 
     # Display the appropriate message
     result_json =[]
-    if has_vulnerabilities:
-      result_json = results_section
-    else:
-      result_json.append({'message': 'No vulnerabilities in container image'})
-
+    # Commented temporarily to save all results 
+    # if has_vulnerabilities:
+    #   result_json = results_section
+    # else:
+    #   result_json.append({'message': 'No vulnerabilities in container image'})
+    result_json = results_section
     log_info(f'Trivy scan result for {image_name}:\n{result_json}')
     scan_summary = scan_result_summary(result_json)
-    trivy_scans.update(services, component_name, image_name, component_build_image_tag, result_json, scan_summary)
+    trivy_scans.update(services, component_name, image_name, component_build_image_tag, scan_summary)
   except subprocess.CalledProcessError as e:
     result_json = []
     if "DB error" in e.stderr and retry_count <= 3:
@@ -111,42 +114,75 @@ def scan_image(services, component, cache_dir, retry_count):
       scan_summary = {}
       trivy_scans.update(services, component_name, image_name, component_build_image_tag, result_json, scan_summary, 'Failed')
 
-def scan_result_summary(scan_results):
-  extracted_entries = []
-  summary = {"scan_result": {"fixed": [], "unfixed": []}, "summary": {}}
+def scan_result_summary(scan_result):
+  scan_summary = {
+    "scan_result": {},
+    "summary": {
+      "os-pkgs": {"fixed": {}, "unfixed": {}},
+      "lang-pkgs": {"fixed": {}, "unfixed": {}},
+      "config": {},
+      "secret": {}
+    }
+  }
+
+  def increment_summary(summary_section, severity, fixed=False):
+    key = "fixed" if fixed else "unfixed"
+    if key not in summary_section:
+        summary_section[key] = {}
+    summary_section[key][severity] = summary_section[key].get(severity, 0) + 1
         
-  for result in scan_results:
-    if 'Vulnerabilities' in result and isinstance(result['Vulnerabilities'], list):
-      for vulnerability in result['Vulnerabilities']:
-        entry = {
-          "PkgName": vulnerability["PkgName"],
-          "VulnerabilityID": vulnerability["VulnerabilityID"],
-          "Severity": vulnerability["Severity"],
-          "InstalledVersion": vulnerability["InstalledVersion"],
-          "FixedVersion": vulnerability.get("FixedVersion", "N/A")
-        }
-                    
-        if entry["FixedVersion"] == "N/A":
-          summary["scan_result"]["unfixed"].append(entry)
-        else:
-          summary["scan_result"]["fixed"].append(entry)
-        
-  severity_counts = {"fixed": {}, "unfixed": {}}
-        
-  for category in ["fixed", "unfixed"]:
-    for severity in ["HIGH", "CRITICAL", "UNKNOWN"]:
-      if severity not in severity_counts[category]:
-        severity_counts[category][severity] = 0
-            
-    for entry in summary["scan_result"][category]:
-      severity = entry["Severity"]
-      if severity not in severity_counts[category]:
-        severity_counts[category][severity] = 0
-      severity_counts[category][severity] += 1
-        
-      # Add severity counts to the summary
-  summary["summary"] = severity_counts
-  return summary
+  for result in scan_result:
+    if not isinstance(result, dict):
+        raise ValueError(f"Unexpected data type for result: {type(result)}. Expected a dictionary.")
+
+    vulnerabilities = result.get("Vulnerabilities", [])
+    misconfigurations = result.get("Misconfigurations", [])
+    secrets = result.get("Secrets", [])
+
+    # Process vulnerabilities (os-pkgs and lang-pkgs)
+    if vulnerabilities:
+        for vuln in vulnerabilities:
+            class_type = "os-pkgs" if result.get("Type") == "os-pkgs" else "lang-pkgs"
+            scan_summary["scan_result"].setdefault(class_type, []).append({
+                "PkgName": vuln.get("PkgName", "N/A"),
+                "Severity": vuln.get("Severity", "UNKNOWN"),
+                "Description": vuln.get("Description", "N/A"),
+                "InstalledVersion": vuln.get("InstalledVersion", "N/A"),
+                "FixedVersion": vuln.get("FixedVersion", "N/A"),
+                "VulnerabilityID": vuln.get("VulnerabilityID", "N/A")
+            })
+            increment_summary(
+                scan_summary["summary"][class_type],
+                vuln.get("Severity", "UNKNOWN"),
+                fixed=bool(vuln.get("FixedVersion"))
+            )
+
+    # Process misconfigurations (config)
+    if misconfigurations:
+        for misconfig in misconfigurations:
+            scan_summary["scan_result"].setdefault("config", []).append({
+                "Severity": misconfig.get("Severity", "UNKNOWN"),
+                "Description": misconfig.get("Message", "N/A"),
+                "FilePath": result.get("Target", "N/A"),
+                "LineNumber": misconfig.get("PrimaryResource", {}).get("Line", "N/A"),
+                "AdditionalContext": misconfig.get("Resolution", "N/A")
+            })
+            severity = misconfig.get("Severity", "UNKNOWN")
+            scan_summary["summary"]["config"][severity] = scan_summary["summary"]["config"].get(severity, 0) + 1
+
+    # Process secrets (secret)
+    if secrets:
+        for secret in secrets:
+            scan_summary["scan_result"].setdefault("secret", []).append({
+                "Severity": secret.get("Severity", "UNKNOWN"),
+                "Description": secret.get("Title", "N/A"),
+                "FilePath": result.get("Target", "N/A"),
+                "LineNumber": secret.get("StartLine", "N/A"),
+                "AdditionalContext": secret.get("Match", "N/A")
+            })
+            severity = secret.get("Severity", "UNKNOWN")
+            scan_summary["summary"]["secret"][severity] = scan_summary["summary"]["secret"].get(severity, 0) + 1
+  return scan_summary
 
 def scan_prod_image(services, components, max_threads):
   sc = services.sc

@@ -72,7 +72,7 @@ def scan_image(services, component, cache_dir, retry_count):
         '--scanners',
         'vuln,secret,config',
         '--image-config-scanners',
-        'misconfig,secret',
+        'secret',
       ],
       capture_output=True,
       text=True,
@@ -120,7 +120,6 @@ def scan_result_summary(scan_result):
     "summary": {
       "os-pkgs": {"fixed": {}, "unfixed": {}},
       "lang-pkgs": {"fixed": {}, "unfixed": {}},
-      "config": {},
       "secret": {}
     }
   }
@@ -136,7 +135,6 @@ def scan_result_summary(scan_result):
         raise ValueError(f"Unexpected data type for result: {type(result)}. Expected a dictionary.")
 
     vulnerabilities = result.get("Vulnerabilities", [])
-    misconfigurations = result.get("Misconfigurations", [])
     secrets = result.get("Secrets", [])
 
     # Process vulnerabilities (os-pkgs and lang-pkgs)
@@ -149,26 +147,14 @@ def scan_result_summary(scan_result):
                 "Description": vuln.get("Description", "N/A"),
                 "InstalledVersion": vuln.get("InstalledVersion", "N/A"),
                 "FixedVersion": vuln.get("FixedVersion", "N/A"),
-                "VulnerabilityID": vuln.get("VulnerabilityID", "N/A")
+                "VulnerabilityID": vuln.get("VulnerabilityID", "N/A"),
+                "PrimaryURL": vuln.get("PrimaryURL", "N/A")
             })
             increment_summary(
                 scan_summary["summary"][class_type],
                 vuln.get("Severity", "UNKNOWN"),
                 fixed=bool(vuln.get("FixedVersion"))
             )
-
-    # Process misconfigurations (config)
-    if misconfigurations:
-        for misconfig in misconfigurations:
-            scan_summary["scan_result"].setdefault("config", []).append({
-                "Severity": misconfig.get("Severity", "UNKNOWN"),
-                "Description": misconfig.get("Message", "N/A"),
-                "FilePath": result.get("Target", "N/A"),
-                "LineNumber": misconfig.get("PrimaryResource", {}).get("Line", "N/A"),
-                "AdditionalContext": misconfig.get("Resolution", "N/A")
-            })
-            severity = misconfig.get("Severity", "UNKNOWN")
-            scan_summary["summary"]["config"][severity] = scan_summary["summary"]["config"].get(severity, 0) + 1
 
     # Process secrets (secret)
     if secrets:

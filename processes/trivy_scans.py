@@ -26,7 +26,6 @@ def get_image_list(services, max_threads=10):
     
 def delete_sc_trivy_scan_results(services):
   sc = services.sc
-  log = services.log
   # Fetch the list of records
   trivy_data = sc.get_all_records(sc.trivy_scans_get)
   for record in trivy_data:
@@ -40,7 +39,6 @@ def delete_sc_trivy_scan_results(services):
 
 def get_new_container_image_list(services, image_list):
   sc = services.sc
-  log = services.log
   new_image_list = []
   trivy_data = sc.get_all_records(sc.trivy_scans_get)
   filtered_trivy_data = [
@@ -67,7 +65,6 @@ def get_new_container_image_list(services, image_list):
   return new_image_list
 
 def extract_image_list(services, environments_data):
-  log = services.log
   filtered_components = []
   unique_components = set()
 
@@ -112,10 +109,8 @@ def extract_image_list(services, environments_data):
   log_info(f'Number of images: {len(filtered_components)}')
   return filtered_components
 
-def update(services, component, image_name, image_tag, scan_summary, scan_status = 'Succeeded'):
-  log = services.log
+def update(services, component, image_tag, scan_summary, scan_status = 'Succeeded'):
   sc = services.sc
-  MAX_SIZE = 1000000
 
   trivy_scan_data = {
     'name': component,

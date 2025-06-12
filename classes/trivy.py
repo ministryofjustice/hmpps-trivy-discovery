@@ -72,7 +72,7 @@ def scan_image(services, component, cache_dir, retry_count):
         '--scanners',
         'vuln,secret,config',
         '--image-config-scanners',
-        'secret',
+        'misconfig,secret',
       ],
       capture_output=True,
       text=True,
@@ -95,7 +95,7 @@ def scan_image(services, component, cache_dir, retry_count):
     result_json = results_section
     log_info(f'Trivy scan result for {image_name}:\n{result_json}')
     scan_summary = scan_result_summary(result_json)
-    trivy_scans.update(services, component_name, image_name, component_build_image_tag, scan_summary)
+    trivy_scans.update(services, component_name, component_build_image_tag, scan_summary)
   except subprocess.CalledProcessError as e:
     result_json = []
     if "DB error" in e.stderr and retry_count <= 3:
@@ -112,7 +112,7 @@ def scan_image(services, component, cache_dir, retry_count):
       else:
         result_json.append({"error": e.stderr})
       scan_summary = {}
-      trivy_scans.update(services, component_name, image_name, component_build_image_tag, result_json, scan_summary, 'Failed')
+      trivy_scans.update(services, component_name, component_build_image_tag, scan_summary, 'Failed')
 
 def scan_result_summary(scan_result):
   scan_summary = {
@@ -140,7 +140,7 @@ def scan_result_summary(scan_result):
     # Process vulnerabilities (os-pkgs and lang-pkgs)
     if vulnerabilities:
         for vuln in vulnerabilities:
-            class_type = "os-pkgs" if result.get("Type") == "os-pkgs" else "lang-pkgs"
+            class_type = result.get("Class")
             scan_summary["scan_result"].setdefault(class_type, []).append({
                 "PkgName": vuln.get("PkgName", "N/A"),
                 "Severity": vuln.get("Severity", "UNKNOWN"),
@@ -172,7 +172,7 @@ def scan_result_summary(scan_result):
 
 def scan_prod_image(services, components, max_threads):
   sc = services.sc
-  log_info(f'Starting scan for {len(components)} components...')
+  log_info(f'Starting scan for {len(components)} images...')
   threads = []
 
   for component in components:

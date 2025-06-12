@@ -140,7 +140,7 @@ def scan_result_summary(scan_result):
     # Process vulnerabilities (os-pkgs and lang-pkgs)
     if vulnerabilities:
         for vuln in vulnerabilities:
-            class_type = "os-pkgs" if result.get("Type") == "os-pkgs" else "lang-pkgs"
+            class_type = result.get("Class")
             scan_summary["scan_result"].setdefault(class_type, []).append({
                 "PkgName": vuln.get("PkgName", "N/A"),
                 "Severity": vuln.get("Severity", "UNKNOWN"),

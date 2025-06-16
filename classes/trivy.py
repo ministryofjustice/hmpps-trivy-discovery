@@ -79,17 +79,11 @@ def scan_image(services, component, cache_dir, retry_count):
       check=True,
     )
     scan_output = json.loads(result.stdout)
-    results_section = scan_output.get('Results', [])
+    result_json = scan_output.get('Results', [])
+    image_id = scan_output.get('Metadata').get('ImageID')
 
-    if component_build_image_tag == 'latest':
-      image_id = scan_output.get('Metadata').get('ImageID')
-      component_build_image_tag = f"latest ({image_id})"
-
-    # Display the appropriate message
-    result_json =[]
-    result_json = results_section
     log_info(f'Trivy scan result for {image_name}:\n{result_json}')
-    scan_summary = scan_result_summary(result_json)
+    scan_summary = scan_result_summary(result_json,image_id)
 
 
     trivy_scans.update(services, component_name, component_build_image_tag, scan_summary)
@@ -111,8 +105,9 @@ def scan_image(services, component, cache_dir, retry_count):
       scan_summary = {}
       trivy_scans.update(services, component_name, component_build_image_tag, scan_summary, 'Failed')
 
-def scan_result_summary(scan_result):
+def scan_result_summary(scan_result, image_id):
   scan_summary = {
+    "image_id": image_id,
     "scan_result": {},
     "summary": {
       "os-pkgs": {"fixed": {}, "unfixed": {}},

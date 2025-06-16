@@ -83,10 +83,10 @@ def scan_image(services, component, cache_dir, retry_count):
     image_id = scan_output.get('Metadata').get('ImageID')
 
     log_info(f'Trivy scan result for {image_name}:\n{result_json}')
-    scan_summary = scan_result_summary(result_json,image_id)
+    scan_summary = scan_result_summary(result_json)
 
 
-    trivy_scans.update(services, component_name, component_build_image_tag, scan_summary)
+    trivy_scans.update(services, component_name, component_build_image_tag, image_id, scan_summary)
   except subprocess.CalledProcessError as e:
     result_json = []
     if "DB error" in e.stderr and retry_count <= 3:
@@ -103,11 +103,10 @@ def scan_image(services, component, cache_dir, retry_count):
       else:
         result_json.append({"error": e.stderr})
       scan_summary = {}
-      trivy_scans.update(services, component_name, component_build_image_tag, scan_summary, 'Failed')
+      trivy_scans.update(services, component_name, component_build_image_tag, image_id, scan_summary, 'Failed')
 
-def scan_result_summary(scan_result, image_id):
+def scan_result_summary(scan_result):
   scan_summary = {
-    "image_id": image_id,
     "scan_result": {},
     "summary": {
       "os-pkgs": {"fixed": {}, "unfixed": {}},

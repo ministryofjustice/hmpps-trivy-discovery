@@ -80,21 +80,18 @@ def scan_image(services, component, cache_dir, retry_count):
     )
     scan_output = json.loads(result.stdout)
     results_section = scan_output.get('Results', [])
-    # Check if there are any vulnerabilities
-    has_vulnerabilities = any(
-      result.get('Vulnerabilities') for result in results_section
-    )
+
+    if component_build_image_tag == 'latest':
+      image_id = scan_output.get('Metadata').get('ImageID')
+      component_build_image_tag = f"latest ({image_id})"
 
     # Display the appropriate message
     result_json =[]
-    # Commented temporarily to save all results 
-    # if has_vulnerabilities:
-    #   result_json = results_section
-    # else:
-    #   result_json.append({'message': 'No vulnerabilities in container image'})
     result_json = results_section
     log_info(f'Trivy scan result for {image_name}:\n{result_json}')
     scan_summary = scan_result_summary(result_json)
+
+
     trivy_scans.update(services, component_name, component_build_image_tag, scan_summary)
   except subprocess.CalledProcessError as e:
     result_json = []

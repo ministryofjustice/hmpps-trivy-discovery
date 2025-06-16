@@ -109,12 +109,13 @@ def extract_image_list(services, environments_data):
   log_info(f'Number of images: {len(filtered_components)}')
   return filtered_components
 
-def update(services, component, image_tag, scan_summary, scan_status = 'Succeeded'):
+def update(services, component, image_tag, image_id, scan_summary, scan_status = 'Succeeded'):
   sc = services.sc
 
   trivy_scan_data = {
     'name': component,
     'build_image_tag': image_tag,
+    'image_id': image_id,
     'trivy_scan_timestamp': datetime.now().isoformat(),
     'scan_summary': scan_summary,
     'scan_status': scan_status,

@@ -15,6 +15,7 @@ import processes.trivy_scans as trivy_scans
 log = logging.getLogger(__name__)
 cache_dir = '/app/trivy_cache' if os.path.exists('/app/trivy_cache') else '/tmp'
 
+
 def install(services):
   try:
     # Get the latest Trivy version
@@ -26,9 +27,11 @@ def install(services):
     if not trivy_version:
       log_error('Failed to retrieve Trivy version')
       sc_scheduled_job.update(services, 'Failed')
-      services.slack.alert('hmpps-trivy-discovery: failed to install Trivy - Failed to retrieve version')
+      services.slack.alert(
+        'hmpps-trivy-discovery: failed to install Trivy - Failed to retrieve version'
+      )
       raise SystemExit('Failed to retrieve Trivy version')
-    
+
     log_info(f'Trivy version: {trivy_version}')
     trivy_version_stripped = trivy_version.lstrip('v')
     # Define the URL for the Trivy binary
@@ -51,6 +54,7 @@ def install(services):
     services.slack.alert(f'hmpps-trivy-discovery: failed to install Trivy - {e}')
     raise SystemExit(e) from e
 
+
 def scan_image(services, component, cache_dir, retry_count):
   component_name = component['component_name']
   component_build_image_tag = component['build_image_tag']
@@ -70,7 +74,7 @@ def scan_image(services, component, cache_dir, retry_count):
         '--skip-files',
         '/app/agent.jar',
         '--scanners',
-        'vuln,secret,config',
+        'vuln,secret,misconfig',
         '--image-config-scanners',
         'misconfig,secret',
       ],
@@ -85,81 +89,99 @@ def scan_image(services, component, cache_dir, retry_count):
     log_info(f'Trivy scan result for {image_name}:\n{result_json}')
     scan_summary = scan_result_summary(result_json)
 
-
-    trivy_scans.update(services, component_name, component_build_image_tag, image_id, scan_summary)
+    trivy_scans.update(
+      services, component_name, component_build_image_tag, image_id, scan_summary
+    )
   except subprocess.CalledProcessError as e:
     result_json = []
-    if "DB error" in e.stderr and retry_count <= 3:
+    if 'DB error' in e.stderr and retry_count <= 3:
       retry_count += 1
-      log_info(f"Retrying Trivy scan for {image_name} - attempt {retry_count}...")
+      log_info(f'Retrying Trivy scan for {image_name} - attempt {retry_count}...')
       sleep(5)
       scan_image(services, component, cache_dir, retry_count)
     else:
       log_error(f'Trivy scan failed for {image_name}: {e.stderr}')
-      if "Fatal error" in e.stderr:
-        fatal_error_match = re.search(r"FATAL\s+(.*)", e.stderr)
+      if 'Fatal error' in e.stderr:
+        fatal_error_match = re.search(r'FATAL\s+(.*)', e.stderr)
         fatal_error_message = fatal_error_match.group(1)
-        result_json.append({"error": fatal_error_message})
+        result_json.append({'error': fatal_error_message})
       else:
-        result_json.append({"error": e.stderr})
+        result_json.append({'error': e.stderr})
       scan_summary = {}
-      trivy_scans.update(services, component_name, component_build_image_tag, image_id, scan_summary, 'Failed')
+      trivy_scans.update(
+        services,
+        component_name,
+        component_build_image_tag,
+        image_id,
+        scan_summary,
+        'Failed',
+      )
+
 
 def scan_result_summary(scan_result):
   scan_summary = {
-    "scan_result": {},
-    "summary": {
-      "os-pkgs": {"fixed": {}, "unfixed": {}},
-      "lang-pkgs": {"fixed": {}, "unfixed": {}},
-      "secret": {}
-    }
+    'scan_result': {},
+    'summary': {
+      'os-pkgs': {'fixed': {}, 'unfixed': {}},
+      'lang-pkgs': {'fixed': {}, 'unfixed': {}},
+      'secret': {},
+    },
   }
 
   def increment_summary(summary_section, severity, fixed=False):
-    key = "fixed" if fixed else "unfixed"
+    key = 'fixed' if fixed else 'unfixed'
     if key not in summary_section:
-        summary_section[key] = {}
+      summary_section[key] = {}
     summary_section[key][severity] = summary_section[key].get(severity, 0) + 1
-        
+
   for result in scan_result:
     if not isinstance(result, dict):
-        raise ValueError(f"Unexpected data type for result: {type(result)}. Expected a dictionary.")
+      raise ValueError(
+        f'Unexpected data type for result: {type(result)}. Expected a dictionary.'
+      )
 
-    vulnerabilities = result.get("Vulnerabilities", [])
-    secrets = result.get("Secrets", [])
+    vulnerabilities = result.get('Vulnerabilities', [])
+    secrets = result.get('Secrets', [])
 
     # Process vulnerabilities (os-pkgs and lang-pkgs)
     if vulnerabilities:
-        for vuln in vulnerabilities:
-            class_type = result.get("Class")
-            scan_summary["scan_result"].setdefault(class_type, []).append({
-                "PkgName": vuln.get("PkgName", "N/A"),
-                "Severity": vuln.get("Severity", "UNKNOWN"),
-                "Description": vuln.get("Description", "N/A"),
-                "InstalledVersion": vuln.get("InstalledVersion", "N/A"),
-                "FixedVersion": vuln.get("FixedVersion", "N/A"),
-                "VulnerabilityID": vuln.get("VulnerabilityID", "N/A"),
-                "PrimaryURL": vuln.get("PrimaryURL", "N/A")
-            })
-            increment_summary(
-                scan_summary["summary"][class_type],
-                vuln.get("Severity", "UNKNOWN"),
-                fixed=bool(vuln.get("FixedVersion"))
-            )
+      for vuln in vulnerabilities:
+        class_type = result.get('Class')
+        scan_summary['scan_result'].setdefault(class_type, []).append(
+          {
+            'PkgName': vuln.get('PkgName', 'N/A'),
+            'Severity': vuln.get('Severity', 'UNKNOWN'),
+            'Description': vuln.get('Description', 'N/A'),
+            'InstalledVersion': vuln.get('InstalledVersion', 'N/A'),
+            'FixedVersion': vuln.get('FixedVersion', 'N/A'),
+            'VulnerabilityID': vuln.get('VulnerabilityID', 'N/A'),
+            'PrimaryURL': vuln.get('PrimaryURL', 'N/A'),
+          }
+        )
+        increment_summary(
+          scan_summary['summary'][class_type],
+          vuln.get('Severity', 'UNKNOWN'),
+          fixed=bool(vuln.get('FixedVersion')),
+        )
 
     # Process secrets (secret)
     if secrets:
-        for secret in secrets:
-            scan_summary["scan_result"].setdefault("secret", []).append({
-                "Severity": secret.get("Severity", "UNKNOWN"),
-                "Description": secret.get("Title", "N/A"),
-                "FilePath": result.get("Target", "N/A"),
-                "LineNumber": secret.get("StartLine", "N/A"),
-                "AdditionalContext": secret.get("Match", "N/A")
-            })
-            severity = secret.get("Severity", "UNKNOWN")
-            scan_summary["summary"]["secret"][severity] = scan_summary["summary"]["secret"].get(severity, 0) + 1
+      for secret in secrets:
+        scan_summary['scan_result'].setdefault('secret', []).append(
+          {
+            'Severity': secret.get('Severity', 'UNKNOWN'),
+            'Description': secret.get('Title', 'N/A'),
+            'FilePath': result.get('Target', 'N/A'),
+            'LineNumber': secret.get('StartLine', 'N/A'),
+            'AdditionalContext': secret.get('Match', 'N/A'),
+          }
+        )
+        severity = secret.get('Severity', 'UNKNOWN')
+        scan_summary['summary']['secret'][severity] = (
+          scan_summary['summary']['secret'].get(severity, 0) + 1
+        )
   return scan_summary
+
 
 def scan_prod_image(services, components, max_threads):
   sc = services.sc
@@ -173,7 +195,9 @@ def scan_prod_image(services, components, max_threads):
 
     if 'build_image_tag' in component and component['build_image_tag']:
       initial_retry_count = 1
-      t = threading.Thread(target=scan_image, args=(services, component, cache_dir, initial_retry_count))
+      t = threading.Thread(
+        target=scan_image, args=(services, component, cache_dir, initial_retry_count)
+      )
       threads.append(t)
 
       # Start the thread
@@ -192,4 +216,3 @@ def scan_prod_image(services, components, max_threads):
     t.join()
 
   log_info('Completed all Trivy scans.')
-

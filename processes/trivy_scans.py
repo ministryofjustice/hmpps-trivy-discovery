@@ -29,13 +29,13 @@ def delete_sc_trivy_scan_results(services):
   # Fetch the list of records
   trivy_data = sc.get_all_records(sc.trivy_scans_get)
   for record in trivy_data:
-    record_id = record['id']
+    record_document_id = record.get('documentId')
     try:
-      sc.delete(sc.trivy_scans, record_id)
-      log_info(f'Deleted Trivy scan record with ID: {record_id}')
+      sc.delete(sc.trivy_scans, record_document_id)
+      log_info(f'Deleted Trivy scan record with ID: {record_document_id}')
     except requests.exceptions.RequestException as e:
-      log_error(f'Error deleting Trivy scan record with ID {record_id}: {e}')
-      job.error_messages.append(f'Error deleting Trivy scan record with ID {record_id}: {e}')
+      log_error(f'Error deleting Trivy scan record with ID {record_document_id}: {e}')
+      job.error_messages.append(f'Error deleting Trivy scan record with ID {record_document_id}: {e}')
 
 def get_new_container_image_list(services, image_list):
   sc = services.sc
@@ -43,12 +43,12 @@ def get_new_container_image_list(services, image_list):
   trivy_data = sc.get_all_records(sc.trivy_scans_get)
   filtered_trivy_data = [
     trivy for trivy in trivy_data
-    if trivy['attributes'].get('scan_status') == 'Succeeded'
+    if trivy.get('scan_status') == 'Succeeded'
     or (
-      trivy['attributes'].get('scan_status') == 'Failed'
+      trivy.get('scan_status') == 'Failed'
       and all(
         "unable to find the specified image" in result.get('error', '').lower()
-        for result in trivy['attributes'].get('trivy_scan_results', [])
+        for result in trivy.get('trivy_scan_results', [])
       )
     )
   ]
@@ -56,8 +56,8 @@ def get_new_container_image_list(services, image_list):
     build_image_tag = image['build_image_tag']
     name = image['component_name']
     if not any(
-      trivy['attributes']['build_image_tag'] == build_image_tag and
-      trivy['attributes']['name'] == name
+      trivy.get('build_image_tag') == build_image_tag and
+      trivy.get('name') == name
       for trivy in filtered_trivy_data
     ):
       new_image_list.append(image)
@@ -69,23 +69,18 @@ def extract_image_list(services, environments_data):
   unique_components = set()
 
   for environment in environments_data:
-    if component := environment.get('attributes', {}).get('component', {}):
-      component_data = component.get('data', {})
-      component_attributes = (
-        component_data.get('attributes', {}) if component_data else {}
-      )
-      component_name = component_attributes.get('name')
-
-      build_image_tag = environment.get('attributes', {}).get('build_image_tag')
+    if component := environment.get('component', {}):
+      component_name = component.get('name')
+      build_image_tag = environment.get('build_image_tag')
       if not build_image_tag:
         build_image_tag = 'latest'
         log_warning(
           f'Build image tag for {component_name} is "latest", this may cause issues with image identification.'
         )
-      container_image_repo = component_attributes.get('container_image')
+      container_image_repo = component.get('container_image')
       if container_image_repo:
         log_debug(
-          f'environment build image tag for {component_attributes.get("name")}: {environment.get("attributes").get("build_image_tag")}'
+          f'environment build image tag for {component.get("name")}: {environment.get("build_image_tag")}'
         )
         filtered_component = {
             'component_name': component_name,
@@ -98,8 +93,8 @@ def extract_image_list(services, environments_data):
           unique_components.add(component_tuple)
           filtered_components.append(filtered_component)
       else:
-        namespace = environment.get('attributes', {}).get('namespace')
-        env_name = environment.get('attributes', {}).get('name')
+        namespace = environment.get('namespace')
+        env_name = environment.get('name')
         if component_name:
           log_warning(f'No container image repo for {component_name} - {env_name} - {namespace}')
         else:
@@ -124,46 +119,47 @@ def update(services, component, image_tag, image_id, scan_summary, scan_status =
 
   environments = sc.get_filtered_data('environments' , 'component][name', component)
   environment_names = []
-  environment_ids = []
+  environment_document_ids = []
   missing_images_environments_ids = []
   if image_tag == 'latest':
     environment_names.append('unknown')
     for environment in environments:
-      missing_images_environments_ids.append(environment['id'])
+      missing_images_environments_ids.append(environment.get('documentId'))
   else:
     for environment in environments:
-      if environment['attributes']['build_image_tag'] == image_tag:
-        environment_names.append(environment['attributes']['name'])
-        environment_ids.append(environment['id'])
+      if environment.get('build_image_tag') == image_tag:
+        document_id = environment.get("documentId")
+        environment_names.append(environment.get('name'))
+        environment_document_ids.append(document_id)
   trivy_scan_data['environments'] = environment_names
 
   if response := sc.add(sc.trivy_scans_get, trivy_scan_data):
-    trivy_scan_id = response.get('data', {}).get('id', {})
-    if trivy_scan_id:
-      if environment_ids:
-        for environment_id in environment_ids:
+    trivy_scan_document_id = response.get('data', {}).get('documentId', {})
+    if trivy_scan_document_id:
+      if environment_document_ids:
+        for environment_document_id in environment_document_ids:
             try:
-              sc.update('environments', environment_id, {'trivy_scan': trivy_scan_id})
+              sc.update('environments', environment_document_id, {'trivy_scan': trivy_scan_document_id})
               log_info(
-                f'Updated environment {environment_id} with Trivy scan ID: {trivy_scan_id}'
+                f'Updated environment {environment_document_id} with Trivy scan ID: {trivy_scan_document_id}'
               )
             except Exception as e:
-              log_error(f'Failed to update environment {environment_id} with Trivy scan ID: {trivy_scan_id} - {e}')
+              log_error(f'Failed to update environment {environment_document_id} with Trivy scan ID: {trivy_scan_document_id} - {e}')
 
       if missing_images_environments_ids:
-        for environment_id in missing_images_environments_ids:
+        for environment_document_id in missing_images_environments_ids:
           try:
-            sc.update('environments', environment_id, {'trivy_scan': trivy_scan_id})
+            sc.update('environments', environment_document_id, {'trivy_scan': trivy_scan_document_id})
             log_info(
-                f'Updated environment {environment_id} with Trivy scan ID: {trivy_scan_id}'
+                f'Updated environment {environment_document_id} with Trivy scan ID: {trivy_scan_document_id}'
               )
           except Exception as e:
-            log_error(f'Failed to update environment {environment_id} with Trivy scan ID: {trivy_scan_id} - {e}')
+            log_error(f'Failed to update environment {environment_document_id} with Trivy scan ID: {trivy_scan_document_id} - {e}')
 
-      if not(environment_ids and missing_images_environments_ids):
+      if not(environment_document_ids and missing_images_environments_ids):
         log_warning(f'No environments found for {component}')
     else:
-      log_warning(f'No trivy_scan_id found for {component}')
+      log_warning(f'No trivy_scan_document_id found for {component}')
   else:
     log_error(f'Failed to upload Trivy scan results for {component}: error code {response.status_code}')
     

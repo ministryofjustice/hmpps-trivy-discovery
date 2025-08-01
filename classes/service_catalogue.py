@@ -142,6 +142,7 @@ class ServiceCatalogue:
         json={'data': data},
         timeout=10,
       )
+      log_debug(f'Result from Service Catalogue: {x.status_code} {x.content}')}')
       if x.status_code == 200:
         log_info(
           f'Successfully updated record {element_document_id} in {table.split("/")[-1]}: {x.status_code}'

@@ -159,7 +159,7 @@ def update(services, component, image_tag, image_id, scan_summary, scan_status =
       if not(environment_document_ids and missing_images_environments_ids):
         log_warning(f'No environments found for {component}')
     else:
-      log_warning(f'No trivy_scan_document_id found for {component}')
+      log_warning(f'No trivy_scan_id found for {component}')
   else:
     log_error(f'Failed to upload Trivy scan results for {component}: error code {response.status_code}')
     

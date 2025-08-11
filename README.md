@@ -9,4 +9,4 @@ The app does the following:
 
 Results are visible via the developer portal, e.g.
 
-https://developer-portal.hmpps.service.justice.gov.uk/components/trivy
+https://developer-portal.hmpps.service.justice.gov.uk/trivy-scans

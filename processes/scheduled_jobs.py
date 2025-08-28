@@ -18,8 +18,8 @@ def update(services, status):
     job_data["last_successful_run"] = datetime.now().isoformat()
 
   try:
-    job_id = sc_scheduled_jobs_data['id']
-    sc.update('scheduled-jobs', job_id, job_data)
+    job_document_id = sc_scheduled_jobs_data.get('documentId', {})
+    sc.update('scheduled-jobs', job_document_id, job_data)
     return True
   except Exception as e:
     log_error(f"Job {job.name} not found in Service Catalogue")

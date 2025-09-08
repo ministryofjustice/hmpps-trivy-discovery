@@ -32,7 +32,7 @@ class ServiceCatalogue:
     }
 
     self.environments = 'environments'
-    self.environments_get = (f'{self.environments}?populate[0]=component{pagination_page_size}{sort_filter}')
+    self.environments_get = (f'{self.environments}?populate[component]=true{pagination_page_size}{sort_filter}')
     self.trivy_scans = 'trivy-scans'
     self.trivy_scans_get = (f'{self.trivy_scans}?populate=*')
     self.scheduled_jobs = 'scheduled-jobs'
@@ -132,28 +132,29 @@ class ServiceCatalogue:
   Update a record in the Service Catalogue with passed-in JSON data
   """
 
-  def update(self, table, element_id, data):
+  def update(self, table, element_document_id, data):
     success = False
     try:
       log_debug(f'data to be uploaded: {json.dumps(data, indent=2)}')
       x = requests.put(
-        f'{self.url}/v1/{table}/{element_id}',
+        f'{self.url}/v1/{table}/{element_document_id}',
         headers=self.api_headers,
         json={'data': data},
         timeout=10,
       )
+      log_debug(f'Result from Service Catalogue: {x.status_code} {x.content}')
       if x.status_code == 200:
         log_info(
-          f'Successfully updated record {element_id} in {table.split("/")[-1]}: {x.status_code}'
+          f'Successfully updated record {element_document_id} in {table.split("/")[-1]}: {x.status_code}'
         )
         success = True
       else:
         log_info(
-          f'Received non-200 response from service catalogue for record id {element_id} in {table.split("/")[-1]}: {x.status_code} {x.content}'
+          f'Received non-200 response from service catalogue for record id {element_document_id} in {table.split("/")[-1]}: {x.status_code} {x.content}'
         )
     except Exception as e:
       log_error(
-        f'Error updating service catalogue for record id {element_id} in {table.split("/")[-1]}: {e}'
+        f'Error updating service catalogue for record id {element_document_id} in {table.split("/")[-1]}: {e}'
       )
     return success
 
@@ -167,7 +168,7 @@ class ServiceCatalogue:
         json={'data': data},
         timeout=10,
       )
-      if x.status_code == 200:
+      if x.status_code == 201:
         log_info(
           f'Successfully added {(data["team_name"] if "team_name" in data else data["name"])} to {table.split("/")[-1]}: {x.status_code}'
         )
@@ -212,24 +213,24 @@ class ServiceCatalogue:
       )
     return success
   
-  def delete(self, table, id):
+  def delete(self, table, element_document_id):
     success = False
     try:
-      log_debug(f'ID to be deleted from {table} is: {id}')
+      log_debug(f'ID to be deleted from {table} is: {element_document_id}')
       x = requests.delete(
-        f'{self.url}/v1/{table}/{id}',
+        f'{self.url}/v1/{table}/{element_document_id}',
         headers=self.api_headers,
         timeout=10,
       )
-      if x.status_code == 200:
-        log_info(f'Successfully deleted {id} from {table}: {x.status_code}')
+      if x.status_code in [200, 204]:
+        log_info(f'Successfully deleted {element_document_id} from {table}: {x.status_code}')
         success = True
       else:
         log_info(
-          f'Received non-200 response from service catalogue to delete a id {id} from {table} in Service Catalogue: {x.status_code} {x.content}'
+          f'Received non-200 response from service catalogue to delete a id {element_document_id} from {table} in Service Catalogue: {x.status_code} {x.content}'
         )
     except Exception as e:
-      log_error(f'Error deleting ID {id} from {table} in Service Catalogue: {e}')
+      log_error(f'Error deleting ID {element_document_id} from {table} in Service Catalogue: {e}')
     return success
   
   # eg get_id('github-teams', 'team_name', 'example')
@@ -240,16 +241,25 @@ class ServiceCatalogue:
         headers=self.api_headers,
         timeout=10,
       )
-      if r.status_code == 200 and r.json()['data']:
-        sc_id = r.json()['data'][0]['id']
-        log_debug(
-          f'Successfully found Service Catalogue ID for {match_field}={match_string} in {match_table}: {sc_id}'
-        )
-        return sc_id
-      log_warning(
-        f'Could not find Service Catalogue ID for {match_field}={match_string} in {match_table}'
-      )
-      return None
+      if r.status_code == 200:
+        data = r.json().get('data', [])
+        if data:
+          sc_document_id = data[0].get['element_document_id']
+          if sc_document_id:
+            log_debug(
+              f'Successfully found Service Catalogue ID for {match_field}={match_string} in {match_table}: {sc_document_id}'
+            )
+            return sc_document_id
+          else:
+            log_warning(
+              f'No Service Catalogue ID found for {match_field}={match_string} in {match_table}'
+            )
+            return None
+        else:
+          log_warning(
+            f'Could not find Service Catalogue ID for {match_field}={match_string} in {match_table}'
+          )
+          return None
     except Exception as e:
       log_error(
         f'Error getting Service Catalogue ID for {match_field}={match_string} in {match_table}: {e} - {r.status_code} {r.content}'

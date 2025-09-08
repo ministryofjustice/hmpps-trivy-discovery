@@ -15,7 +15,6 @@ import processes.trivy_scans as trivy_scans
 log = logging.getLogger(__name__)
 cache_dir = '/app/trivy_cache' if os.path.exists('/app/trivy_cache') else '/tmp'
 
-
 def install(services):
   try:
     # Get the latest Trivy version
@@ -54,11 +53,11 @@ def install(services):
     services.slack.alert(f'hmpps-trivy-discovery: failed to install Trivy - {e}')
     raise SystemExit(e) from e
 
-
 def scan_image(services, component, cache_dir, retry_count):
   component_name = component['component_name']
   component_build_image_tag = component['build_image_tag']
   image_name = f'{component["container_image_repo"]}:{component_build_image_tag}'
+  image_id = ''
   log_info(f'Running Trivy scan on {image_name}')
 
   try:
@@ -85,7 +84,6 @@ def scan_image(services, component, cache_dir, retry_count):
     scan_output = json.loads(result.stdout)
     result_json = scan_output.get('Results', [])
     image_id = scan_output.get('Metadata').get('ImageID')
-
     log_info(f'Trivy scan result for {image_name}:\n{result_json}')
     scan_summary = scan_result_summary(result_json)
 

@@ -204,7 +204,7 @@ def scan_prod_image(services, components, max_threads):
   log_info(f'Starting scan for {len(components)} images...')
   threads = []
   scan_image(services, components[0], cache_dir, 1)  # Test scan on the first image to ensure Trivy works)
-  for component in components:
+  for component in components[1:]:
     if not isinstance(component, dict):
       log_error(f'Invalid component format: {component}')
       continue

@@ -162,4 +162,56 @@ def update(services, component, image_tag, image_id, scan_summary, scan_status =
       log_warning(f'No trivy_scan_document_id found for {component}')
   else:
     log_error(f'Failed to upload Trivy scan results for {component}: error code {response.status_code}')
+
+def send_summary_to_slack(services):
+  sc = services.sc
+  slack = services.slack
+  trivy_data = sc.get_all_records(sc.trivy_scans_get)
+  if not trivy_data:
+    log_warning('No Trivy scan data found to summarize.')
+    return
+
+  total_images = len(trivy_data)
+  total_vulnerabilities = 0
+  severity_count = {
+    'CRITICAL': 0,
+    'HIGH': 0,
+    'MEDIUM': 0,
+    'LOW': 0,
+    'UNKNOWN': 0,
+  }
+  failed_scans = []
+  error_messages = []
+
+  for record in trivy_data:
+    scan_status = record.get('scan_status', 'Unknown')
+    if scan_status == 'Succeeded':
+      summary = record.get('scan_summary', {}).get('summary', {})
+      os_pkgs = summary.get('os-pkgs', {})
+      lang_pkgs = summary.get('lang-pkgs', {})
+      for pkg_type in [os_pkgs, lang_pkgs]:
+        for status in ['fixed', 'unfixed']:
+          for severity, count in pkg_type.get(status, {}).items():
+            severity_count[severity] += count
+            total_vulnerabilities += count
+
+  summary_message = (
+    f"*Trivy Scan Summary:*\n"
+    f"- Total Images Scanned: {total_images}\n"
+    f"- Total Vulnerabilities Found: {total_vulnerabilities}\n"
+    f"  - Critical: {severity_count['CRITICAL']}\n"
+    f"  - High: {severity_count['HIGH']}\n"
+    f"  - Medium: {severity_count['MEDIUM']}\n"
+    f"  - Low: {severity_count['LOW']}\n"
+    f"  - Unknown: {severity_count['UNKNOWN']}\n"
+  )
+
+  if failed_scans:
+    summary_message += f"\n*Failed Scans:* {', '.join(failed_scans)}\n"
+  
+  if error_messages:
+    summary_message += "\n*Error Messages:*\n" + "\n".join(error_messages)
+  log_info("Summary of Trivy scans prepared for Slack notification.")
+  log_info("Summary message:\n" + summary_message)
+  slack.notify(summary_message)
     

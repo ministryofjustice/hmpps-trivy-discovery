@@ -17,8 +17,8 @@ LOG_LEVEL = os.environ.get('LOG_LEVEL', 'INFO').upper()
 
 class Services:
   def __init__(self, sc_params, slack_params, log):
-    self.slack = Slack(slack_params, log)
-    self.sc = ServiceCatalogue(sc_params, log)
+    self.slack = Slack(slack_params)
+    self.sc = ServiceCatalogue(sc_params)
     self.log = log
 
 def main():
@@ -68,8 +68,11 @@ def main():
   image_list = trivy_scans.get_image_list(services)
   if job.name == 'hmpps-trivy-discovery-full':
     trivy_scans.delete_sc_trivy_scan_results(services)
-  
-  trivy.scan_prod_image(services, image_list, max_threads)
+    trivy.scan_prod_image(services, image_list, max_threads)
+    trivy_scans.send_summart_to_slack(services)
+    log_info('Sent summary to Slack channel.')
+  else:
+    trivy.scan_prod_image(services, image_list, max_threads)
 
   if job.error_messages:
     sc_scheduled_job.update(services, 'Errors')

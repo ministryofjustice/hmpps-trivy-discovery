@@ -69,7 +69,7 @@ def main():
   if job.name == 'hmpps-trivy-discovery-full':
     trivy_scans.delete_sc_trivy_scan_results(services)
     trivy.scan_prod_image(services, image_list, max_threads)
-    trivy_scans.send_summart_to_slack(services)
+    trivy_scans.send_summary_to_slack(services)
     log_info('Sent summary to Slack channel.')
   else:
     trivy.scan_prod_image(services, image_list, max_threads)

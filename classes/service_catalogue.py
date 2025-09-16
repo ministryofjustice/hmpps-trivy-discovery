@@ -173,6 +173,18 @@ class ServiceCatalogue:
           f'Successfully added {(data["team_name"] if "team_name" in data else data["name"])} to {table.split("/")[-1]}: {x.status_code}'
         )
         success = True
+      elif x.status_code == 413 and 'trivy_scan_timestamp' in data:
+        log_warning(
+          f'Payload too large when adding record to {data.get('name')}. Removing trivy_scan_results description and retrying.'
+        )
+        scan_result = data.get('scan_summary', {}).get('scan_result', {})
+        # Iterate through 'lang-pkgs' and 'os-pkgs' and set 'Description' to None
+        for pkg_type in ['lang-pkgs', 'os-pkgs']:
+          if pkg_type in scan_result:
+            for vuln in scan_result[pkg_type]:
+              vuln['Description'] = None  # Set Description to None
+
+        return self.add(table, data)
       else:
         log_info(
           f'Received non-200 response from service catalogue to add a record to {table.split("/")[-1]}: {x.status_code} {x.content}'

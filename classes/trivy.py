@@ -46,11 +46,29 @@ def install(services):
     with tarfile.open(trivy_tar, 'r:gz') as tar:
       tar.extractall()
     log_info('Trivy installed successfully.')
-
+    
   except subprocess.CalledProcessError as e:
     log_error(f'Failed to install Trivy: {e}', file=sys.stderr)
     sc_scheduled_job.update(services, 'Failed')
     services.slack.alert(f'hmpps-trivy-discovery: failed to install Trivy - {e}')
+    raise SystemExit(e) from e
+  
+  try:
+    result = subprocess.run(
+      [
+        'trivy',
+        'image',
+        '--download-db-only'
+      ],
+      capture_output=True,
+      text=True,
+      check=True,
+    )
+    log_info('Trivy DB downloaded successfully.')
+  except subprocess.CalledProcessError as e:
+    log_error(f'Failed to download Trivy DB: {e.stderr}', file=sys.stderr)
+    sc_scheduled_job.update(services, 'Failed')
+    services.slack.alert(f'hmpps-trivy-discovery: failed to download Trivy DB - {e.stderr}')
     raise SystemExit(e) from e
 
 def scan_image(services, component, cache_dir, retry_count):
@@ -185,7 +203,7 @@ def scan_prod_image(services, components, max_threads):
   sc = services.sc
   log_info(f'Starting scan for {len(components)} images...')
   threads = []
-
+  scan_image(services, components[0], cache_dir, 1)  # Test scan on the first image to ensure Trivy works)
   for component in components:
     if not isinstance(component, dict):
       log_error(f'Invalid component format: {component}')

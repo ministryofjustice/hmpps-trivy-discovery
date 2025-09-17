@@ -1,7 +1,6 @@
 import subprocess
 import urllib.request
 import tarfile
-import threading
 import sys
 import logging
 import os
@@ -200,38 +199,15 @@ def scan_result_summary(scan_result):
 
 
 def scan_prod_image(services, components, max_threads):
-  sc = services.sc
   log_info(f'Starting scan for {len(components)} images...')
-  threads = []
-  if isinstance(components, list) and len(components) > 0:
-    scan_image(services, components[0], cache_dir, 1)
-  else:
-    log_info('No new components found to scan.')
-  for component in components[1:]:
+  for component in components:
     if not isinstance(component, dict):
       log_error(f'Invalid component format: {component}')
       continue
 
     if 'build_image_tag' in component and component['build_image_tag']:
       initial_retry_count = 1
-      t = threading.Thread(
-        target=scan_image, args=(services, component, cache_dir, initial_retry_count)
-      )
-      threads.append(t)
-
-      # Start the thread
-      t.start()
-      log_info(f'Started thread for {component["component_name"]}')
-
-      # Limit the number of active threads to max_threads
-      while threading.active_count() > max_threads:
-        log_debug(
-          f'Active Threads={threading.active_count()}, Max Threads={max_threads}'
-        )
-        sleep(1)
-
-  # Wait for all threads to complete
-  for t in threads:
-    t.join()
+      log_info(f'Started Trivy scan for {component["component_name"]}')
+      scan_image(services, component, cache_dir, 1)
 
   log_info('Completed all Trivy scans.')

@@ -7,14 +7,13 @@ import os
 import json
 import re
 from time import sleep
-from utilities.job_log_handling import log_debug, log_error, log_info, log_critical, job
-import processes.scheduled_jobs as sc_scheduled_job
+from hmpps.services.job_log_handling import log_debug, log_error, log_info, log_critical
 import processes.trivy_scans as trivy_scans
 
 log = logging.getLogger(__name__)
 cache_dir = '/app/trivy_cache' if os.path.exists('/app/trivy_cache') else '/tmp'
 
-def install(services):
+def install():
   try:
     # Get the latest Trivy version
     trivy_version = subprocess.check_output(
@@ -23,12 +22,7 @@ def install(services):
       text=True,
     ).strip()
     if not trivy_version:
-      log_error('Failed to retrieve Trivy version')
-      sc_scheduled_job.update(services, 'Failed')
-      services.slack.alert(
-        'hmpps-trivy-discovery: failed to install Trivy - Failed to retrieve version'
-      )
-      raise SystemExit('Failed to retrieve Trivy version')
+      return 'Failed to install Trivy - unable to retrieve version'
 
     log_info(f'Trivy version: {trivy_version}')
     trivy_version_stripped = trivy_version.lstrip('v')
@@ -47,13 +41,13 @@ def install(services):
     log_info('Trivy installed successfully.')
     
   except subprocess.CalledProcessError as e:
-    log_error(f'Failed to install Trivy: {e}', file=sys.stderr)
-    sc_scheduled_job.update(services, 'Failed')
-    services.slack.alert(f'hmpps-trivy-discovery: failed to install Trivy - {e}')
-    raise SystemExit(e) from e
-  
+    return 'Failed to extract Trivy - {e}'
+
+  except Exception as e: # Not a CalledProcess error - it could happen
+    return 'Failed to install Trivy - {e}'
+      
   try:
-    result = subprocess.run(
+    subprocess.run(
       [
         'trivy',
         'image',
@@ -65,10 +59,8 @@ def install(services):
     )
     log_info('Trivy DB downloaded successfully.')
   except subprocess.CalledProcessError as e:
-    log_error(f'Failed to download Trivy DB: {e.stderr}', file=sys.stderr)
-    sc_scheduled_job.update(services, 'Failed')
-    services.slack.alert(f'hmpps-trivy-discovery: failed to download Trivy DB - {e.stderr}')
-    raise SystemExit(e) from e
+    return f'Failed to download Trivy DB - {e.stderr}'
+  return 'Success'
 
 def scan_image(services, component, cache_dir, retry_count):
   component_name = component['component_name']
@@ -206,7 +198,6 @@ def scan_prod_image(services, components, max_threads):
       continue
 
     if 'build_image_tag' in component and component['build_image_tag']:
-      initial_retry_count = 1
       log_info(f'Started Trivy scan for {component["component_name"]}')
       scan_image(services, component, cache_dir, 1)
 

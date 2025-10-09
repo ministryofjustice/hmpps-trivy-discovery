@@ -210,13 +210,25 @@ wheels = [
 [[package]]
 name = "hmpps-python-lib"
 version = "0.1.5"
-source = { git = "https://github.com/ministryofjustice/hmpps-python-lib?branch=feat%2FHEAT-887_trivy_scan_functions#1c0d86bde32e58ec45b98efc1427708b83916409" }
+source = { url = "https://github.com/ministryofjustice/hmpps-python-lib/releases/download/v0.1.5/hmpps_python_lib-0.1.5-py3-none-any.whl" }
 dependencies = [
     { name = "gitpython" },
     { name = "pygithub" },
     { name = "pyyaml" },
     { name = "requests" },
     { name = "slack-sdk" },
+]
+wheels = [
+    { url = "https://github.com/ministryofjustice/hmpps-python-lib/releases/download/v0.1.5/hmpps_python_lib-0.1.5-py3-none-any.whl", hash = "sha256:e8e091b4022d28b4cdd09c396ae723b8421a1d30e22ba8fc78d34c6eb23e8c52" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "gitpython", specifier = ">=3.1.0" },
+    { name = "pygithub", specifier = ">=2.6.1" },
+    { name = "pyyaml", specifier = "==6.0.1" },
+    { name = "requests", specifier = ">=2.32.5" },
+    { name = "slack-sdk", specifier = ">=3.36.0" },
 ]
 
 [[package]]
@@ -231,7 +243,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "concurrent-log-handler", specifier = ">=0.9.28" },
-    { name = "hmpps-python-lib", git = "https://github.com/ministryofjustice/hmpps-python-lib?branch=feat%2FHEAT-887_trivy_scan_functions" },
+    { name = "hmpps-python-lib", url = "https://github.com/ministryofjustice/hmpps-python-lib/releases/download/v0.1.5/hmpps_python_lib-0.1.5-py3-none-any.whl" },
 ]
 
 [[package]]

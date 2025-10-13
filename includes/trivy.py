@@ -42,16 +42,6 @@ def install():
     with tarfile.open(trivy_tar, 'r:gz') as tar:
       tar.extractall()
     log_info('Trivy installed successfully.')
-  
-
-    log_info('Checking extracted contents...')
-    for root, dirs, files in os.walk('.'):
-        for name in files:
-            full_path = os.path.join(root, name)
-            is_executable = os.access(full_path, os.X_OK)
-            log_debug(f'Found file: {full_path} | Executable: {is_executable}')
-            if name == 'trivy':
-                log_info(f'Found Trivy binary at: {full_path}')
 
   except Exception as e: # Not a CalledProcess error - it could happen
     return f'Failed to install Trivy - {e}'
@@ -59,7 +49,7 @@ def install():
   try:
     subprocess.run(
       [
-        'trivy',
+        './trivy',
         'image',
         '--download-db-only'
       ],
@@ -82,7 +72,7 @@ def scan_image(services, component, cache_dir, retry_count):
   try:
     result = subprocess.run(
       [
-        'trivy',
+        './trivy',
         'image',
         image_name,
         '--format',

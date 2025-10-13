@@ -30,7 +30,7 @@ def delete_sc_trivy_scan_results(services):
   for record in trivy_data:
     record_document_id = record.get('documentId')
     try:
-      sc.delete(sc.trivy_scans, record_document_id)
+      sc.delete('trivy-scans', record_document_id)
       log_info(f'Deleted Trivy scan record with ID: {record_document_id}')
     except requests.exceptions.RequestException as e:
       log_error(f'Error deleting Trivy scan record with ID {record_document_id}: {e}')

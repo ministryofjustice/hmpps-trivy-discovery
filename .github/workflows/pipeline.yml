@@ -60,6 +60,7 @@ jobs:
       helm_additional_args: '--set "discoveryCronJob.env.SLACK_NOTIFY_CHANNEL=${{ vars.DEV_SLACK_NOTIFY_CHANNEL }}"  --set "discoveryCronJob.env.SLACK_ALERT_CHANNEL=${{ vars.DEV_SLACK_ALERT_CHANNEL }}"'
   deploy_prod:
     name: Deploy to production environment
+    if: github.ref == 'refs/heads/main'
     needs:
       - build
       - deploy_dev

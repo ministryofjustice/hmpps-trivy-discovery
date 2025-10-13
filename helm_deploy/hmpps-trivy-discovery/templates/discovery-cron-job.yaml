@@ -25,7 +25,7 @@ spec:
               command: ["uv", "run", "python", "-u", "/app/trivy_discovery.py", "-f"]
               env:
                 - name: PATH
-                  value: "/home/appuser/.local:/app:/usr/local/bin:$PATH"
+                  value: "/home/appuser/.local:/usr/local/bin:$PATH"
               securityContext:
                 capabilities:
                   drop:
@@ -62,7 +62,7 @@ spec:
               command: ["uv", "run", "python", "-u", "/app/trivy_discovery.py", "-i"]
               env:
                 - name: PATH
-                  value: "/home/appuser/.local:/app:/usr/local/bin:$PATH"
+                  value: "/home/appuser/.local:/usr/local/bin:$PATH"
               securityContext:
                 capabilities:
                   drop:

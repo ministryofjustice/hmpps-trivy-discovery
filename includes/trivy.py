@@ -49,7 +49,7 @@ def install():
   try:
     subprocess.run(
       [
-        './trivy',
+        'trivy',
         'image',
         '--download-db-only'
       ],
@@ -72,7 +72,7 @@ def scan_image(services, component, cache_dir, retry_count):
   try:
     result = subprocess.run(
       [
-        './trivy',
+        'trivy',
         'image',
         image_name,
         '--format',

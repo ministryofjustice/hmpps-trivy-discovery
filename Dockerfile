@@ -16,6 +16,9 @@ COPY --chown=appuser:appgroup  ./trivy_discovery.py /app/trivy_discovery.py
 COPY --chown=appuser:appgroup  ./includes ./includes
 COPY --chown=appuser:appgroup  ./processes ./processes
 
+# update PATH environment variable
+ENV PATH=/home/appuser/.local:/app:$PATH
+
 USER 2000
 
 CMD [ "uv", "run", "python", "-u", "/app/trivy_discovery.py" ]

@@ -61,12 +61,14 @@ def main():
     sys.exit(1)
 
   # Install Trivy
-    trivy_status=trivy.install(services)
-    if trivy_status.startswith('Failed'):
-      log_critical(f'{trivy_status}')
-      slack.alert(f'{job.name} - {trivy_status}')
-      sc.update_scheduled_job('Failed')
-      sys.exit(1)
+  log_debug('Installing trivy')
+  trivy_status=trivy.install()
+  if trivy_status.startswith('Failed'):
+    log_critical(f'{trivy_status}')
+    slack.alert(f'{job.name} - {trivy_status}')
+    sc.update_scheduled_job('Failed')
+    sys.exit(1)
+  log_debug('Trivy installed')
 
   image_list = trivy_scans.get_image_list(services)
   if job.name == 'hmpps-trivy-discovery-full':

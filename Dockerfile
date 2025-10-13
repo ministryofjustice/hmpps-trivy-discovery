@@ -8,8 +8,6 @@ RUN addgroup -g 2000 appgroup && \
 COPY pyproject.toml .
 RUN uv sync
 
-COPY ./veracode_discovery.py .
-
 COPY --chown=appuser:appgroup  ./trivy_discovery.py /app/trivy_discovery.py
 COPY --chown=appuser:appgroup  ./includes ./includes
 COPY --chown=appuser:appgroup  ./processes ./processes

@@ -1,8 +1,7 @@
-import subprocess
-import urllib.request
+import requests
 import tarfile
-import sys
 import logging
+import subprocess
 import os
 import json
 import re
@@ -16,15 +15,13 @@ cache_dir = '/app/trivy_cache' if os.path.exists('/app/trivy_cache') else '/tmp'
 def install():
   try:
     # Get the latest Trivy version
-    trivy_version = subprocess.check_output(
-      'wget -qO- https://api.github.com/repos/aquasecurity/trivy/releases/latest | jq -r .tag_name',
-      shell=True,
-      text=True,
-    ).strip()
-    if not trivy_version:
-      return 'Failed to install Trivy - unable to retrieve version'
 
-    log_info(f'Trivy version: {trivy_version}')
+    response = requests.get('https://api.github.com/repos/owner/repo/releases/latest')
+    if trivy_version:=response.json().get('tag_name'):
+      log_info(f'Trivy version: {trivy_version}')
+    else:
+      return 'Failed to install Trivy - unable to retrieve version'
+    
     trivy_version_stripped = trivy_version.lstrip('v')
     # Define the URL for the Trivy binary
     trivy_url = f'https://github.com/aquasecurity/trivy/releases/download/{trivy_version}/trivy_{trivy_version_stripped}_Linux-64bit.tar.gz'
@@ -32,19 +29,22 @@ def install():
 
     # Download the Trivy binary
     log_info(f'Downloading Trivy from {trivy_url}...')
-    urllib.request.urlretrieve(trivy_url, trivy_tar)
+    response = requests.get(trivy_url, stream=True)
+    response.raise_for_status()  # Optional: raises an error for bad responses
+
+    with open(trivy_tar, 'wb') as f:
+        for chunk in response.iter_content(chunk_size=8192):
+            f.write(chunk)
+    f.close()
 
     # Extract the tar.gz file
     log_info('Extracting Trivy...')
     with tarfile.open(trivy_tar, 'r:gz') as tar:
       tar.extractall()
     log_info('Trivy installed successfully.')
-    
-  except subprocess.CalledProcessError as e:
-    return 'Failed to extract Trivy - {e}'
-
+  
   except Exception as e: # Not a CalledProcess error - it could happen
-    return 'Failed to install Trivy - {e}'
+    return f'Failed to install Trivy - {e}'
       
   try:
     subprocess.run(

@@ -16,7 +16,7 @@ def install():
   try:
     # Get the latest Trivy version
 
-    response = requests.get('https://api.github.com/repos/owner/repo/releases/latest')
+    response = requests.get('https://api.github.com/repos/aquasecurity/trivy/releases/latest')
     if trivy_version:=response.json().get('tag_name'):
       log_info(f'Trivy version: {trivy_version}')
     else:

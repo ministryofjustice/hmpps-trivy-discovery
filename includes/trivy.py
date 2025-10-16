@@ -93,7 +93,7 @@ def scan_image(services, component, cache_dir, retry_count):
     scan_output = json.loads(result.stdout)
     result_json = scan_output.get('Results', [])
     image_id = scan_output.get('Metadata').get('ImageID')
-    log_info(f'Trivy scan result for {image_name}:\n{result_json}')
+    log_debug(f'Trivy scan result for {image_name}:\n{json.dumps(result_json,indent=2)}')
     scan_summary = scan_result_summary(result_json)
 
     trivy_scans.update(
@@ -154,11 +154,14 @@ def scan_result_summary(scan_result):
     if vulnerabilities:
       for vuln in vulnerabilities:
         class_type = result.get('Class')
+        severity = vuln.get('Severity', 'UNKNOWN')
+        description = (f'{vuln.get("Description","")}' if severity in ('CRITICAL','HIGH') else f'{vuln.get("Description","")[:40]}...')
         scan_summary['scan_result'].setdefault(class_type, []).append(
           {
             'PkgName': vuln.get('PkgName', 'N/A'),
-            'Severity': vuln.get('Severity', 'UNKNOWN'),
-            'Description': vuln.get('Description', 'N/A'),
+            'Severity': severity,
+            'Title': vuln.get('Title',''),
+            'Description': description,
             'InstalledVersion': vuln.get('InstalledVersion', 'N/A'),
             'FixedVersion': vuln.get('FixedVersion', 'N/A'),
             'VulnerabilityID': vuln.get('VulnerabilityID', 'N/A'),

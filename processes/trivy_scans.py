@@ -1,4 +1,5 @@
 import requests
+import json
 from datetime import datetime
 from hmpps.services.job_log_handling import (
   log_debug,
@@ -12,6 +13,7 @@ from hmpps.services.job_log_handling import (
 def get_image_list(services, max_threads=10):
   sc = services.sc
   environments_data = sc.get_all_records(sc.environments_get)
+  log_debug(f'Environment data:\n{json.dumps(environments_data,indent=2)}')
   if not environments_data:
     log_error(f'Errors occurred while fetching environment data from Service Catalogue')
     sc.update(services, 'Failed')
@@ -182,10 +184,6 @@ def update(
         log_warning(f'No environments found for {component}')
     else:
       log_warning(f'No trivy_scan_document_id found for {component}')
-  else:
-    log_error(
-      f'Failed to upload Trivy scan results for {component}: error code {response.status_code}'
-    )
 
 
 def send_summary_to_slack(services):

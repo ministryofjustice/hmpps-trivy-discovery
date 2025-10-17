@@ -10,13 +10,13 @@ from hmpps.services.job_log_handling import (
 )
 
 
-def get_image_list(services, max_threads=10):
+def get_image_list(services):
   sc = services.sc
   environments_data = sc.get_all_records(sc.environments_get)
-  log_debug(f'Environment data:\n{json.dumps(environments_data,indent=2)}')
   if not environments_data:
-    log_error(f'Errors occurred while fetching environment data from Service Catalogue')
+    log_error('Errors occurred while fetching environment data from Service Catalogue')
     sc.update(services, 'Failed')
+    return None
 
   # Extract image list data from environments data
   image_list = extract_image_list(environments_data)
@@ -144,41 +144,33 @@ def update(
         environment_names.append(environment.get('name'))
         environment_document_ids.append(document_id)
   trivy_scan_data['environments'] = environment_names
-
+  log_info(
+    f'Scan data upload size for {component}: {int(len(json.dumps(trivy_scan_data.get("scan_summary", {}))) / 1024)}kB'
+  )
   if response := sc.add('trivy-scans', trivy_scan_data):
-    trivy_scan_document_id = response.get('data', {}).get('documentId', {})
-    if trivy_scan_document_id:
-      if environment_document_ids:
-        for environment_document_id in environment_document_ids:
-          try:
-            sc.update(
-              'environments',
-              environment_document_id,
-              {'trivy_scan': trivy_scan_document_id},
-            )
-            log_info(
-              f'Updated environment {environment_document_id} with Trivy scan ID: {trivy_scan_document_id}'
-            )
-          except Exception as e:
-            log_error(
-              f'Failed to update environment {environment_document_id} with Trivy scan ID: {trivy_scan_document_id} - {e}'
-            )
+    trivy_scan_document_id = response.get('data', {}).get('documentId', '')
 
-      if missing_images_environments_ids:
-        for environment_document_id in missing_images_environments_ids:
-          try:
-            sc.update(
-              'environments',
-              environment_document_id,
-              {'trivy_scan': trivy_scan_document_id},
-            )
-            log_info(
-              f'Updated environment {environment_document_id} with Trivy scan ID: {trivy_scan_document_id}'
-            )
-          except Exception as e:
-            log_error(
-              f'Failed to update environment {environment_document_id} with Trivy scan ID: {trivy_scan_document_id} - {e}'
-            )
+    if trivy_scan_document_id:
+      # it will skip this if there aren't any
+      for environment_document_id in environment_document_ids:
+        sc.update(
+          'environments',
+          environment_document_id,
+          {'trivy_scan': trivy_scan_document_id},
+        )
+        log_info(
+          f'Updated environment {environment_document_id} with Trivy scan ID: {trivy_scan_document_id}'
+        )
+      # it will skip this if there aren't any
+      for environment_document_id in missing_images_environments_ids:
+        sc.update(
+          'environments',
+          environment_document_id,
+          {'trivy_scan': trivy_scan_document_id},
+        )
+        log_info(
+          f'Updated environment {environment_document_id} with Trivy scan ID: {trivy_scan_document_id}'
+        )
 
       if not (environment_document_ids and missing_images_environments_ids):
         log_warning(f'No environments found for {component}')

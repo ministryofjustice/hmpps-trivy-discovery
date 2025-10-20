@@ -4,12 +4,10 @@ import sys
 import json
 import logging
 from datetime import datetime
-from classes.service_catalogue import ServiceCatalogue
-from classes.slack import Slack
+from hmpps import ServiceCatalogue, Slack
 import processes.trivy_scans as trivy_scans
-import classes.trivy as trivy
-from utilities.job_log_handling import log_debug, log_error, log_info, log_critical, job
-import processes.scheduled_jobs as sc_scheduled_job
+import includes.trivy as trivy
+from hmpps.services.job_log_handling import log_debug, log_error, log_info, log_critical, job
 
 # Set maximum number of concurrent threads to run, try to avoid secondary github api limits.
 max_threads = 5
@@ -19,18 +17,17 @@ class Services:
   def __init__(self, sc_params, slack_params, log):
     self.slack = Slack(slack_params)
     self.sc = ServiceCatalogue(sc_params)
-    self.log = log
 
 def main():
   logging.basicConfig(
     format='[%(asctime)s] %(levelname)s %(threadName)s %(message)s', level=LOG_LEVEL
   )
   log = logging.getLogger(__name__)
-  if '-f' in os.sys.argv or '--full' in os.sys.argv:
+  if '-f' in sys.argv or '--full' in sys.argv:
     job.name = 'hmpps-trivy-discovery-full'
     log_info('Running Trivy scan on all container images in Service Catalogue')
     log_info('********************************************************************')
-  elif '-i' in os.sys.argv or '--incremental' in os.sys.argv:
+  elif '-i' in sys.argv or '--incremental' in sys.argv:
     job.name = 'hmpps-trivy-discovery-incremental'
     log_info('Running Trivy scan on new images only')
     log_info('********************************************************************')
@@ -64,7 +61,15 @@ def main():
     sys.exit(1)
 
   # Install Trivy
-  trivy.install(services)
+  log_debug('Installing trivy')
+  trivy_status=trivy.install()
+  if trivy_status.startswith('Failed'):
+    log_critical(f'{trivy_status}')
+    slack.alert(f'{job.name} - {trivy_status}')
+    sc.update_scheduled_job('Failed')
+    sys.exit(1)
+  log_debug('Trivy installed')
+
   image_list = trivy_scans.get_image_list(services)
   if job.name == 'hmpps-trivy-discovery-full':
     trivy_scans.delete_sc_trivy_scan_results(services)
@@ -75,10 +80,10 @@ def main():
     trivy.scan_prod_image(services, image_list, max_threads)
 
   if job.error_messages:
-    sc_scheduled_job.update(services, 'Errors')
+    sc.update_scheduled_job('Errors')
     log_info("Trivy discovery job completed  with errors.")
   else:
-    sc_scheduled_job.update(services, 'Succeeded')
+    sc.update_scheduled_job('Succeeded')
     log_info("Trivy discovery job completed successfully.")
 
 if __name__ == '__main__':

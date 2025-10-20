@@ -22,7 +22,7 @@ spec:
           containers:
             - name: hmpps-trivy-discovery
               image: "{{ .Values.image.repository }}:{{ .Values.version }}"
-              command: ["python", "-u", "/app/trivy_discovery.py", "-f"]
+              command: ["uv", "run", "python", "-u", "/app/trivy_discovery.py", "-f"]
               env:
                 - name: PATH
                   value: "/home/appuser/.local:/usr/local/bin:$PATH"
@@ -59,7 +59,7 @@ spec:
           containers:
             - name: hmpps-trivy-discovery
               image: "{{ .Values.image.repository }}:{{ .Values.version }}"
-              command: ["python", "-u", "/app/trivy_discovery.py", "-i"]
+              command: ["uv", "run", "python", "-u", "/app/trivy_discovery.py", "-i"]
               env:
                 - name: PATH
                   value: "/home/appuser/.local:/usr/local/bin:$PATH"

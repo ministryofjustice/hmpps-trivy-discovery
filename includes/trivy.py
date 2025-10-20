@@ -1,36 +1,30 @@
-import subprocess
-import urllib.request
+import requests
 import tarfile
-import sys
 import logging
+import subprocess
 import os
 import json
 import re
 from time import sleep
-from utilities.job_log_handling import log_debug, log_error, log_info, log_critical, job
-import processes.scheduled_jobs as sc_scheduled_job
+from hmpps.services.job_log_handling import log_debug, log_error, log_info, log_critical
 import processes.trivy_scans as trivy_scans
 
 log = logging.getLogger(__name__)
 cache_dir = '/app/trivy_cache' if os.path.exists('/app/trivy_cache') else '/tmp'
 
-def install(services):
+
+def install():
   try:
     # Get the latest Trivy version
-    trivy_version = subprocess.check_output(
-      'wget -qO- https://api.github.com/repos/aquasecurity/trivy/releases/latest | jq -r .tag_name',
-      shell=True,
-      text=True,
-    ).strip()
-    if not trivy_version:
-      log_error('Failed to retrieve Trivy version')
-      sc_scheduled_job.update(services, 'Failed')
-      services.slack.alert(
-        'hmpps-trivy-discovery: failed to install Trivy - Failed to retrieve version'
-      )
-      raise SystemExit('Failed to retrieve Trivy version')
 
-    log_info(f'Trivy version: {trivy_version}')
+    response = requests.get(
+      'https://api.github.com/repos/aquasecurity/trivy/releases/latest'
+    )
+    if trivy_version := response.json().get('tag_name'):
+      log_info(f'Trivy version: {trivy_version}')
+    else:
+      return 'Failed to install Trivy - unable to retrieve version'
+
     trivy_version_stripped = trivy_version.lstrip('v')
     # Define the URL for the Trivy binary
     trivy_url = f'https://github.com/aquasecurity/trivy/releases/download/{trivy_version}/trivy_{trivy_version_stripped}_Linux-64bit.tar.gz'
@@ -38,37 +32,35 @@ def install(services):
 
     # Download the Trivy binary
     log_info(f'Downloading Trivy from {trivy_url}...')
-    urllib.request.urlretrieve(trivy_url, trivy_tar)
+    response = requests.get(trivy_url, stream=True)
+    response.raise_for_status()  # Optional: raises an error for bad responses
+
+    with open(trivy_tar, 'wb') as f:
+      for chunk in response.iter_content(chunk_size=8192):
+        f.write(chunk)
+    f.close()
 
     # Extract the tar.gz file
     log_info('Extracting Trivy...')
     with tarfile.open(trivy_tar, 'r:gz') as tar:
       tar.extractall()
     log_info('Trivy installed successfully.')
-    
-  except subprocess.CalledProcessError as e:
-    log_error(f'Failed to install Trivy: {e}', file=sys.stderr)
-    sc_scheduled_job.update(services, 'Failed')
-    services.slack.alert(f'hmpps-trivy-discovery: failed to install Trivy - {e}')
-    raise SystemExit(e) from e
-  
+
+  except Exception as e:  # Not a CalledProcess error - it could happen
+    return f'Failed to install Trivy - {e}'
+
   try:
-    result = subprocess.run(
-      [
-        'trivy',
-        'image',
-        '--download-db-only'
-      ],
+    subprocess.run(
+      ['trivy', 'image', '--download-db-only'],
       capture_output=True,
       text=True,
       check=True,
     )
     log_info('Trivy DB downloaded successfully.')
   except subprocess.CalledProcessError as e:
-    log_error(f'Failed to download Trivy DB: {e.stderr}', file=sys.stderr)
-    sc_scheduled_job.update(services, 'Failed')
-    services.slack.alert(f'hmpps-trivy-discovery: failed to download Trivy DB - {e.stderr}')
-    raise SystemExit(e) from e
+    return f'Failed to download Trivy DB - {e.stderr}'
+  return 'Success'
+
 
 def scan_image(services, component, cache_dir, retry_count):
   component_name = component['component_name']
@@ -101,7 +93,7 @@ def scan_image(services, component, cache_dir, retry_count):
     scan_output = json.loads(result.stdout)
     result_json = scan_output.get('Results', [])
     image_id = scan_output.get('Metadata').get('ImageID')
-    log_info(f'Trivy scan result for {image_name}:\n{result_json}')
+    log_debug(f'Trivy scan result for {image_name} complete: {len(result_json)}')
     scan_summary = scan_result_summary(result_json)
 
     trivy_scans.update(
@@ -162,11 +154,18 @@ def scan_result_summary(scan_result):
     if vulnerabilities:
       for vuln in vulnerabilities:
         class_type = result.get('Class')
+        severity = vuln.get('Severity', 'UNKNOWN')
+        description = (
+          f'{vuln.get("Description", "")}'
+          if severity in ('CRITICAL', 'HIGH')
+          else f'{vuln.get("Description", "")[:40]}...'
+        )
         scan_summary['scan_result'].setdefault(class_type, []).append(
           {
             'PkgName': vuln.get('PkgName', 'N/A'),
-            'Severity': vuln.get('Severity', 'UNKNOWN'),
-            'Description': vuln.get('Description', 'N/A'),
+            'Severity': severity,
+            'Title': vuln.get('Title', ''),
+            'Description': description,
             'InstalledVersion': vuln.get('InstalledVersion', 'N/A'),
             'FixedVersion': vuln.get('FixedVersion', 'N/A'),
             'VulnerabilityID': vuln.get('VulnerabilityID', 'N/A'),
@@ -199,15 +198,18 @@ def scan_result_summary(scan_result):
 
 
 def scan_prod_image(services, components, max_threads):
-  log_info(f'Starting scan for {len(components)} images...')
+  qty = len(components)
+  log_info(f'Starting scan for {qty} images...')
+  count = 1
   for component in components:
     if not isinstance(component, dict):
       log_error(f'Invalid component format: {component}')
       continue
 
     if 'build_image_tag' in component and component['build_image_tag']:
-      initial_retry_count = 1
-      log_info(f'Started Trivy scan for {component["component_name"]}')
+      log_info(
+        f'Started Trivy scan for {component["component_name"]} - {count}/{qty} images ({int(count / qty) * 100}%)'
+      )
       scan_image(services, component, cache_dir, 1)
-
+    count += 1
   log_info('Completed all Trivy scans.')

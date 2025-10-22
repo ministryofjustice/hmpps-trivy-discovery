@@ -1,0 +1,30 @@
+{
+  "extends": ["config:base"],
+  "packageRules": [
+    {
+      "description": "Group all Python dependencies updates (uv.lock)",
+      "matchManagers": ["poetry", "pip_requirements"],
+      "groupName": "Python dependencies"
+    },
+    {
+      "description": "Group all Docker image updates",
+      "matchManagers": ["dockerfile"],
+      "groupName": "Docker image updates"
+    },
+    {
+      "description": "Group GitHub Actions updates",
+      "matchManagers": ["github-actions"],
+      "groupName": "GitHub Actions updates"
+    }
+  ],
+  "pip_requirements": {
+    "enabled": true,
+    "fileMatch": ["(^|/)uv\\.lock$"]
+  },
+  "docker": {
+    "enabled": true
+  },
+  "github-actions": {
+    "enabled": true
+  }
+}

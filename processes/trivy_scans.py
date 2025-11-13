@@ -76,6 +76,9 @@ def extract_image_list(environments_data):
   for environment in environments_data:
     if component := environment.get('component', {}):
       component_name = component.get('name')
+      if component.get('archived'):
+        log_debug(f'Skipping archived component: {component_name}')
+        continue
       build_image_tag = environment.get('build_image_tag')
       if not build_image_tag:
         build_image_tag = 'latest'

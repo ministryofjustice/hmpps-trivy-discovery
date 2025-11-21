@@ -1,8 +1,4 @@
-FROM ghcr.io/astral-sh/uv:python3.13-alpine
-WORKDIR /app
-
-RUN addgroup -g 2000 appgroup && \
-    adduser -u 2000 -G appgroup -h /home/appuser -D appuser
+FROM ghcr.io/ministryofjustice/hmpps-python:python3.13-alpine AS base
 
 # initialise uv
 COPY pyproject.toml .
@@ -15,9 +11,6 @@ RUN chown -R appuser:appgroup /app
 COPY --chown=appuser:appgroup  ./trivy_discovery.py /app/trivy_discovery.py
 COPY --chown=appuser:appgroup  ./includes ./includes
 COPY --chown=appuser:appgroup  ./processes ./processes
-
-# update PATH environment variable
-ENV PATH=/home/appuser/.local:/app:$PATH
 
 USER 2000
 

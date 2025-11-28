@@ -6,7 +6,11 @@ import os
 import json
 import re
 from time import sleep
-from hmpps.services.job_log_handling import log_debug, log_error, log_info, log_critical
+from hmpps.services.job_log_handling import (
+  log_debug,
+  log_error,
+  log_info,
+)
 import processes.trivy_scans as trivy_scans
 
 log = logging.getLogger(__name__)
@@ -27,7 +31,10 @@ def install():
 
     trivy_version_stripped = trivy_version.lstrip('v')
     # Define the URL for the Trivy binary
-    trivy_url = f'https://github.com/aquasecurity/trivy/releases/download/{trivy_version}/trivy_{trivy_version_stripped}_Linux-64bit.tar.gz'
+    trivy_url = (
+      f'https://github.com/aquasecurity/trivy/releases/download/'
+      f'{trivy_version}/trivy_{trivy_version_stripped}_Linux-64bit.tar.gz'
+    )
     trivy_tar = f'trivy_{trivy_version_stripped}_Linux-64bit.tar.gz'
 
     # Download the Trivy binary
@@ -208,7 +215,8 @@ def scan_prod_image(services, components, max_threads):
 
     if 'build_image_tag' in component and component['build_image_tag']:
       log_info(
-        f'Started Trivy scan for {component["component_name"]} - {count}/{qty} images ({int(count / qty) * 100}%)'
+        f'Started Trivy scan for {component["component_name"]} - {count}/{qty} '
+        f'images ({int(count / qty) * 100}%)'
       )
       scan_image(services, component, cache_dir, 1)
     count += 1

@@ -1,15 +1,20 @@
 #!/usr/bin/env python
 import os
 import sys
-import json
 import logging
-from datetime import datetime
 from hmpps import ServiceCatalogue, Slack
 import processes.trivy_scans as trivy_scans
 import includes.trivy as trivy
-from hmpps.services.job_log_handling import log_debug, log_error, log_info, log_critical, job
+from hmpps.services.job_log_handling import (
+  log_debug,
+  log_error,
+  log_info,
+  log_critical,
+  job,
+)
 
-# Set maximum number of concurrent threads to run, try to avoid secondary github api limits.
+# Set maximum number of concurrent threads to run, try to avoid secondary 
+# github api limits.
 max_threads = 5
 LOG_LEVEL = os.environ.get('LOG_LEVEL', 'INFO').upper()
 
@@ -33,7 +38,9 @@ def main():
     log_info('********************************************************************')
   else:
     log_error(
-      'Invalid argument. Use -i or --incremental for incremental scan or -f or --full for full scan.'
+      'Invalid argument. '
+      'Use -i or --incremental for incremental scan '
+      'or -f or --full for full scan.'
     )
     sys.exit(1)
 

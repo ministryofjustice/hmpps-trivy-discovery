@@ -6,8 +6,8 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "concurrent-log-handler>=0.9.28",
-    "hmpps-python-lib",
+    "hmpps-sre-python-lib",
 ]
 
 [tool.uv.sources]
-hmpps-python-lib = { url = "https://github.com/ministryofjustice/hmpps-python-lib/releases/download/v0.1.5/hmpps_python_lib-0.1.5-py3-none-any.whl" }
+hmpps-sre-python-lib = { url = "https://github.com/ministryofjustice/hmpps-sre-python-lib/releases/download/v0.1.10/hmpps_sre_python_lib-0.1.10-py3-none-any.whl" }

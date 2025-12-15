@@ -3,11 +3,11 @@ name = "hmpps-trivy-discovery"
 version = "0.1.1"
 description = "Add your description here"
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.13"
 dependencies = [
     "concurrent-log-handler>=0.9.28",
     "hmpps-sre-python-lib",
 ]
 
 [tool.uv.sources]
-hmpps-sre-python-lib = { url = "https://github.com/ministryofjustice/hmpps-sre-python-lib/releases/download/v0.1.10/hmpps_sre_python_lib-0.1.10-py3-none-any.whl" }
+hmpps-sre-python-lib = { url = "https://github.com/ministryofjustice/hmpps-sre-python-lib/releases/download/v0.1.13/hmpps_sre_python_lib-0.1.13-py3-none-any.whl" }

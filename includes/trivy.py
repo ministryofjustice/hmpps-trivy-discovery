@@ -6,11 +6,7 @@ import os
 import json
 import re
 from time import sleep
-from hmpps.services.job_log_handling import (
-  log_debug,
-  log_error,
-  log_info,
-)
+from hmpps.services.job_log_handling import log_debug, log_info, log_warning, log_error
 import processes.trivy_scans as trivy_scans
 
 log = logging.getLogger(__name__)
@@ -107,20 +103,19 @@ def scan_image(services, component, cache_dir, retry_count):
       services, component_name, component_build_image_tag, image_id, scan_summary
     )
   except subprocess.CalledProcessError as e:
-    result_json = []
     if 'DB error' in e.stderr and retry_count <= 3:
       retry_count += 1
       log_info(f'Retrying Trivy scan for {image_name} - attempt {retry_count}...')
       sleep(5)
       scan_image(services, component, cache_dir, retry_count)
     else:
-      log_error(f'Trivy scan failed for {image_name}: {e.stderr}')
-      if 'Fatal error' in e.stderr:
-        fatal_error_match = re.search(r'FATAL\s+(.*)', e.stderr)
-        fatal_error_message = fatal_error_match.group(1)
-        result_json.append({'error': fatal_error_message})
+      # only needs to be a warning if the image can't be found
+      if 'unable to find the specified image' in e.stderr:
+        log_warning(f'Trivy scan failed for {image_name}: {e.stderr}')
+        scan_status = 'Failed (image not found)'
       else:
-        result_json.append({'error': e.stderr})
+        log_error(f'Trivy scan failed for {image_name}: {e.stderr}')
+        scan_status = 'Failed (encountered an error - check logs)'
       scan_summary = {}
       trivy_scans.update(
         services,
@@ -128,7 +123,7 @@ def scan_image(services, component, cache_dir, retry_count):
         component_build_image_tag,
         image_id,
         scan_summary,
-        'Failed',
+        scan_status,
       )
 
 

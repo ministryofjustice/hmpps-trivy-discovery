@@ -4,7 +4,6 @@ import logging
 import subprocess
 import os
 import json
-import re
 from time import sleep
 from hmpps.services.job_log_handling import log_debug, log_info, log_warning, log_error
 import processes.trivy_scans as trivy_scans

@@ -210,7 +210,7 @@ def scan_prod_image(services, components, max_threads):
     if 'build_image_tag' in component and component['build_image_tag']:
       log_info(
         f'Started Trivy scan for {component["component_name"]} - {count}/{qty} '
-        f'images ({int(count / qty) * 100}%)'
+        f'images ({int(count / qty * 100)}%)'
       )
       scan_image(services, component, cache_dir, 1)
     count += 1

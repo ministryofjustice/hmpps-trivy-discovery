@@ -284,4 +284,4 @@ def send_summary_to_slack(services):
     '<https://github.com/ministryofjustice/hmpps-trivy-discovery|hmpps-trivy-discovery>)_'
     )
     slack.alert(alert_message)
-    log_info('Sent alert to Slack for significant vulnerabilities in base container images.') 
+    log_info('Sent slack alert for significant vulnerabilities in base images.') 

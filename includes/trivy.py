@@ -69,75 +69,74 @@ def install():
   return 'Success'
 
 def run_trivy_scan(image_name, retry_count=0):
-    global cache_dir
-    log_info(f'Running Trivy scan on {image_name}')
-    try:
-        result = subprocess.run(
-            [
-                'trivy',
-                'image',
-                image_name,
-                '--format',
-                'json',
-                '--skip-dirs',
-                '/usr/local/lib/node_modules/npm',
-                '--skip-files',
-                '/app/agent.jar',
-                '--scanners',
-                'vuln,secret,misconfig',
-                '--image-config-scanners',
-                'misconfig,secret',
-                '--cache-dir',
-                cache_dir,
-            ],
-            capture_output=True,
-            text=True,
-            check=True,
+  global cache_dir
+  log_info(f'Running Trivy scan on {image_name}')
+  try:
+    result = subprocess.run(
+      [
+        'trivy',
+        'image',
+        image_name,
+        '--format',
+        'json',
+        '--skip-dirs',
+        '/usr/local/lib/node_modules/npm',
+        '--skip-files',
+        '/app/agent.jar',
+        '--scanners',
+        'vuln,secret,misconfig',
+        '--image-config-scanners',
+        'misconfig,secret',
+        '--cache-dir',
+        cache_dir,
+      ],
+      capture_output=True,
+      text=True,
+      check=True,
+    )
+    scan_output = json.loads(result.stdout)
+    image_id = scan_output.get('Metadata', {}).get('ImageID', '')
+    result_json = scan_output.get('Results', [])
+    log_debug(f'Trivy scan result for {image_name} complete: {len(result_json)}')
+    return result_json, image_id
+  except subprocess.CalledProcessError as e:
+    if 'DB error' in e.stderr and retry_count < 3:
+      retry_count += 1
+      log_info(f'Retrying Trivy scan for {image_name} - attempt {retry_count}...')
+      sleep(5)
+      return run_trivy_scan(image_name, retry_count)
+    else:
+      log_error(f'Trivy scan failed for {image_name}: {e.stderr}')
+      if 'Fatal error' in e.stderr:
+        fatal_error_match = re.search(r'FATAL\s+(.*)', e.stderr)
+        fatal_error_message = (
+          fatal_error_match.group(1) if fatal_error_match else 'Unknown fatal error'
         )
-        scan_output = json.loads(result.stdout)
-        image_id = scan_output.get('Metadata', {}).get('ImageID', '')
-        result_json = scan_output.get('Results', [])
-        log_debug(f'Trivy scan result for {image_name} complete: {len(result_json)}')
-        return result_json, image_id
-    except subprocess.CalledProcessError as e:
-        if 'DB error' in e.stderr and retry_count < 3:
-            retry_count += 1
-            log_info(f'Retrying Trivy scan for {image_name} - attempt {retry_count}...')
-            sleep(5)
-            return run_trivy_scan(image_name, retry_count)
-        else:
-            log_error(f'Trivy scan failed for {image_name}: {e.stderr}')
-            if 'Fatal error' in e.stderr:
-                fatal_error_match = re.search(r'FATAL\s+(.*)', e.stderr)
-                fatal_error_message = fatal_error_match.group(1) if fatal_error_match else 'Unknown fatal error'
-                return [{'error': fatal_error_message}], ''
-            else:
-                return [{'error': e.stderr}], ''
+        return [{'error': fatal_error_message}], ''
+      else:
+        return [{'error': e.stderr}], ''
             
 def scan_component_image(services, component, retry_count):
-    """
-    Scan an image associated with a component and update the scan results.
-    """
-    component_name = component['component_name']
-    component_build_image_tag = component['build_image_tag']
-    image_name = f'{component["container_image_repo"]}:{component_build_image_tag}'
+  component_name = component['component_name']
+  component_build_image_tag = component['build_image_tag']
+  image_name = f'{component["container_image_repo"]}:{component_build_image_tag}'
 
-    # Perform the Trivy scan
-    result_json, image_id = run_trivy_scan(image_name, retry_count)
+  # Perform the Trivy scan
+  result_json, image_id = run_trivy_scan(image_name, retry_count)
 
-    # Summarize the scan results
-    scan_summary = scan_result_summary(result_json) if result_json else {}
-    scan_status = 'Failed' if not result_json else 'Succeeded'
+  # Summarize the scan results
+  scan_summary = scan_result_summary(result_json) if result_json else {}
+  scan_status = 'Failed' if not result_json else 'Succeeded'
 
-    # Update the scan results
-    trivy_scans.update(
-        services,
-        component_name,
-        component_build_image_tag,
-        image_id,
-        scan_summary,
-        scan_status,
-    )
+  # Update the scan results
+  trivy_scans.update(
+    services,
+      component_name,
+      component_build_image_tag,
+      image_id,
+      scan_summary,
+      scan_status,
+  )
 
 
 def scan_result_summary(scan_result):
@@ -224,7 +223,7 @@ def scan_prod_image(services, components):
     if 'build_image_tag' in component and component['build_image_tag']:
       log_info(
         f'Started Trivy scan for {component["component_name"]} - {count}/{qty} '
-        f'images ({int(count / qty) * 100}%)'
+        f'images ({int((count / qty) * 100)}%)'
       )
       scan_component_image(services, component, 1)
     count += 1

@@ -15,7 +15,6 @@ from hmpps.services.job_log_handling import (
 
 # Set maximum number of concurrent threads to run, try to avoid secondary 
 # github api limits.
-max_threads = 5
 LOG_LEVEL = os.environ.get('LOG_LEVEL', 'INFO').upper()
 
 class Services:
@@ -78,14 +77,10 @@ def main():
   log_debug('Trivy installed')
 
   image_list = trivy_scans.get_image_list(services)
-  if job.name == 'hmpps-trivy-discovery-full':
-    trivy_scans.delete_sc_trivy_scan_results(services)
-    trivy.scan_prod_image(services, image_list, max_threads)
-    trivy_scans.send_summary_to_slack(services)
-    log_info('Sent summary to Slack channel.')
-  else:
-    trivy.scan_prod_image(services, image_list, max_threads)
-
+  trivy_scans.delete_sc_trivy_scan_results(services)
+  trivy.scan_prod_image(services, image_list)
+  trivy.scan_hmpps_base_container_images(services)
+  trivy_scans.send_summary_to_slack(services)
   if job.error_messages:
     sc.update_scheduled_job('Errors')
     log_info("Trivy discovery job completed  with errors.")

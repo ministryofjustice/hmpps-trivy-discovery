@@ -3,7 +3,10 @@
 image:
   repository: ghcr.io/ministryofjustice/hmpps-trivy-discovery
   tag: xxx
-  
+
+imagePullSecrets:
+  - name: 'ghcr-pull-secret'
+
 generic-prometheus-alerts:
   targetApplication: hmpps-trivy-discovery
 

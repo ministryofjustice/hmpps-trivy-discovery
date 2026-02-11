@@ -13,20 +13,15 @@ from hmpps.services.job_log_handling import (
   job,
 )
 
-# Set maximum number of concurrent threads to run, try to avoid secondary 
+# Set maximum number of concurrent threads to run, try to avoid secondary
 # github api limits.
 LOG_LEVEL = os.environ.get('LOG_LEVEL', 'INFO').upper()
 
-class Services:
-  def __init__(self, sc_params, slack_params, log):
-    self.slack = Slack(slack_params)
-    self.sc = ServiceCatalogue(sc_params)
 
 def main():
   logging.basicConfig(
     format='[%(asctime)s] %(levelname)s %(threadName)s %(message)s', level=LOG_LEVEL
   )
-  log = logging.getLogger(__name__)
   if '-f' in sys.argv or '--full' in sys.argv:
     job.name = 'hmpps-trivy-discovery-full'
     log_info('Running Trivy scan on all container images in Service Catalogue')
@@ -43,23 +38,8 @@ def main():
     )
     sys.exit(1)
 
-  # service catalogue parameters
-  sc_params = {
-    'url': os.getenv('SERVICE_CATALOGUE_API_ENDPOINT'),
-    'key': os.getenv('SERVICE_CATALOGUE_API_KEY'),
-    'filter': os.getenv('SC_FILTER', ''),
-  }
-
-  # Slack parameters
-  slack_params = {
-    'token': os.getenv('SLACK_BOT_TOKEN'),
-    'notify_channel': os.getenv('SLACK_NOTIFY_CHANNEL', ''),
-    'alert_channel': os.getenv('SLACK_ALERT_CHANNEL', ''),
-  }
-
-  services = Services(sc_params, slack_params, log)
-  sc = services.sc
-  slack =services.slack
+  slack = Slack()
+  sc = ServiceCatalogue()
 
   if not sc.connection_ok:
     log_error('Failed to connect to the Service Catalogue. Exiting...')
@@ -68,7 +48,7 @@ def main():
 
   # Install Trivy
   log_debug('Installing trivy')
-  trivy_status=trivy.install()
+  trivy_status = trivy.install()
   if trivy_status.startswith('Failed'):
     log_critical(f'{trivy_status}')
     slack.alert(f'{job.name} - {trivy_status}')
@@ -76,17 +56,18 @@ def main():
     sys.exit(1)
   log_debug('Trivy installed')
 
-  image_list = trivy_scans.get_image_list(services)
-  trivy_scans.delete_sc_trivy_scan_results(services)
-  trivy.scan_prod_image(services, image_list)
-  trivy.scan_hmpps_base_container_images(services)
-  trivy_scans.send_summary_to_slack(services)
+  image_list = trivy_scans.get_image_list(sc=sc)
+  trivy_scans.delete_sc_trivy_scan_results(sc=sc)
+  trivy.scan_prod_image(sc=sc, image_list)
+  trivy.scan_hmpps_base_container_images(sc=sc)
+  trivy_scans.send_summary_to_slack(sc=sc,slack=slack)
   if job.error_messages:
     sc.update_scheduled_job('Errors')
-    log_info("Trivy discovery job completed  with errors.")
+    log_info('Trivy discovery job completed  with errors.')
   else:
     sc.update_scheduled_job('Succeeded')
-    log_info("Trivy discovery job completed successfully.")
+    log_info('Trivy discovery job completed successfully.')
+
 
 if __name__ == '__main__':
   main()

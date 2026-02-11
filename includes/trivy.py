@@ -68,6 +68,7 @@ def install():
     return f'Failed to download Trivy DB - {e.stderr}'
   return 'Success'
 
+
 def run_trivy_scan(image_name, retry_count=0):
   global cache_dir
   log_info(f'Running Trivy scan on {image_name}')
@@ -115,7 +116,8 @@ def run_trivy_scan(image_name, retry_count=0):
         return [{'error': fatal_error_message}], ''
       else:
         return [{'error': e.stderr}], ''
-            
+
+
 def scan_component_image(services, component, retry_count):
   component_name = component['component_name']
   component_build_image_tag = component['build_image_tag']
@@ -131,11 +133,11 @@ def scan_component_image(services, component, retry_count):
   # Update the scan results
   trivy_scans.update(
     services,
-      component_name,
-      component_build_image_tag,
-      image_id,
-      scan_summary,
-      scan_status,
+    component_name,
+    component_build_image_tag,
+    image_id,
+    scan_summary,
+    scan_status,
   )
 
 
@@ -211,11 +213,11 @@ def scan_result_summary(scan_result):
   return scan_summary
 
 
-def scan_prod_image(services, components):
-  qty = len(components)
+def scan_prod_image(sc, image_list):
+  qty = len(image_list)
   log_info(f'Starting scan for {qty} images...')
   count = 1
-  for component in components:
+  for component in image_list:
     if not isinstance(component, dict):
       log_error(f'Invalid component format: {component}')
       continue
@@ -225,11 +227,12 @@ def scan_prod_image(services, components):
         f'Started Trivy scan for {component["component_name"]} - {count}/{qty} '
         f'images ({int((count / qty) * 100)}%)'
       )
-      scan_component_image(services, component, 1)
+      scan_component_image(sc, component, 1)
     count += 1
   log_info('Completed all Trivy scans.')
 
-def scan_hmpps_base_container_images(services):
+
+def scan_hmpps_base_container_images(sc):
   log_info('Starting scan for hmpps-basec-container-images...')
   images = ['hmpps-python', 'hmpps-node', 'hmpps-eclipse-temurin']
   for image in images:
@@ -244,10 +247,10 @@ def scan_hmpps_base_container_images(services):
 
     # Update the scan results
     trivy_scans.update(
-        services,
-        f'hmpps-base-container-images:{image}',
-        'latest',
-        image_id,
-        scan_summary,
-        scan_status,
+      sc,
+      f'hmpps-base-container-images:{image}',
+      'latest',
+      image_id,
+      scan_summary,
+      scan_status,
     )

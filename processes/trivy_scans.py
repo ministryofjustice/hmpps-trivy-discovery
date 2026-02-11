@@ -24,8 +24,7 @@ def get_image_list(sc):
   return image_list
 
 
-def delete_sc_trivy_scan_results(services):
-  sc = services.sc
+def delete_sc_trivy_scan_results(sc):
   # Fetch the list of records
   trivy_data = sc.get_all_records('trivy-scans')
   for record in trivy_data:

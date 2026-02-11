@@ -1,7 +1,5 @@
 #!/usr/bin/env python
-import os
 import sys
-import logging
 from hmpps import ServiceCatalogue, Slack
 import processes.trivy_scans as trivy_scans
 import includes.trivy as trivy
@@ -15,13 +13,9 @@ from hmpps.services.job_log_handling import (
 
 # Set maximum number of concurrent threads to run, try to avoid secondary
 # github api limits.
-LOG_LEVEL = os.environ.get('LOG_LEVEL', 'INFO').upper()
 
 
 def main():
-  logging.basicConfig(
-    format='[%(asctime)s] %(levelname)s %(threadName)s %(message)s', level=LOG_LEVEL
-  )
   if '-f' in sys.argv or '--full' in sys.argv:
     job.name = 'hmpps-trivy-discovery-full'
     log_info('Running Trivy scan on all container images in Service Catalogue')
@@ -58,9 +52,9 @@ def main():
 
   image_list = trivy_scans.get_image_list(sc=sc)
   trivy_scans.delete_sc_trivy_scan_results(sc=sc)
-  trivy.scan_prod_image(sc=sc, image_list)
+  trivy.scan_prod_image(sc=sc, image_list=image_list)
   trivy.scan_hmpps_base_container_images(sc=sc)
-  trivy_scans.send_summary_to_slack(sc=sc,slack=slack)
+  trivy_scans.send_summary_to_slack(sc=sc, slack=slack)
   if job.error_messages:
     sc.update_scheduled_job('Errors')
     log_info('Trivy discovery job completed  with errors.')

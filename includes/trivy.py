@@ -127,7 +127,6 @@ def scan_component_image(services, component, retry_count):
   result_json, image_id = run_trivy_scan(image_name, retry_count)
 
   # Summarize the scan results
-  scan_summary = scan_result_summary(result_json) if result_json else {}
   if not result_json or (isinstance(result_json, list) and 'error' in result_json[0]):
       scan_status = 'Failed'
       scan_summary = {}

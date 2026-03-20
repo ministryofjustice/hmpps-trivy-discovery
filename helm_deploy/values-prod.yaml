@@ -5,7 +5,7 @@ generic-prometheus-alerts:
   alertSeverity: hmpps-sre-alerts-prod
 
 discoveryCronJob:
-  enabled: true
+  enabled: false
   full_scan_schedule: "00 01 * * 1-5"
   incremental_scan_schedule: "30 7-17/2 * * 1-5"
   env:
